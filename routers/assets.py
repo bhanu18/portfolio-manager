@@ -57,7 +57,9 @@ async def create_asset(asset_in: AssetCreate, db: AsyncSession = Depends(get_db)
         ticker = yf.Ticker(asset_in.symbol)
         # 'regularMarketPrice' is a reliable field for the current price
         # You can also use 'currentPrice'
-        current_price = ticker.info.get('regularMarketPrice')
+        info = ticker.info
+        current_price = info.get('regularMarketPrice')
+        asset_currency = info.get('currency', 'USD').upper()
 
         if current_price is None:
             # Fallback for some assets or if the market is closed
@@ -81,6 +83,7 @@ async def create_asset(asset_in: AssetCreate, db: AsyncSession = Depends(get_db)
     # 2. Prepare the complete asset data dictionary
     asset_data = asset_in.model_dump()
     asset_data['current_price'] = current_price
+    asset_data['currency'] = asset_currency
     asset_data['created_at'] = datetime.utcnow()
     asset_data['updated_at'] = datetime.utcnow()
     # 3. Call the CRUD function to create the asset in the database

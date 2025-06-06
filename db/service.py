@@ -98,3 +98,18 @@ async def get_all_trades(db: AsyncSession, skip: int = 0, limit: int = 100):
     query = select(orm_models.Trade).offset(skip).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
+
+async def get_trades_before_date(db: AsyncSession, end_date: datetime):
+    """Fetches all trades that occurred before a specific date."""
+    query = select(orm_models.Trade).where(orm_models.Trade.trade_date < end_date)
+    result = await db.execute(query)
+    return result.scalars().all()
+
+async def get_trades_in_date_range(db: AsyncSession, start_date: datetime, end_date: datetime):
+    """Fetches all trades within a specific date range."""
+    query = select(orm_models.Trade).where(
+        orm_models.Trade.trade_date >= start_date,
+        orm_models.Trade.trade_date <= end_date
+    )
+    result = await db.execute(query)
+    return result.scalars().all()

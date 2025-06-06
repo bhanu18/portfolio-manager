@@ -4,7 +4,7 @@ import os
 
 # --- UPDATED FOR MYSQL ---
 # The format is mysql+aiomysql://<user>:<password>@<host>:<port>/<dbname>
-DATABASE_URL = os.environ.get("DB_URL_MAIN")
+DATABASE_URL = "mysql+aiomysql://root:@localhost:3306/portfolio_tracker"
 
 # The rest of the file is the same
 engine = create_async_engine(DATABASE_URL, echo=True)

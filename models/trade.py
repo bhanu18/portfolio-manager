@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Optional
 
 class Trade(BaseModel):
     """
@@ -22,6 +22,7 @@ class Trade(BaseModel):
     # The price of a single unit at the time of the trade
     price_per_unit: float
     currency: str  # Default currency for the trade, can be overridden
+    group_id: int  # The group ID to which this trade belongs
     
 class TradeCreate(BaseModel):
     trade_type: Literal['buy', 'sell']
@@ -29,3 +30,21 @@ class TradeCreate(BaseModel):
     quantity: float
     price_per_unit: float
     currency: str
+    group_id: int # The group ID to which this trade belongs
+    
+class TradeBase(BaseModel):
+    asset_id: int
+    trade_type: Literal['buy', 'sell']
+    trade_date: datetime
+    quantity: float
+    price_per_unit: float
+    currency: str
+    
+class TradeUpdate(BaseModel):
+    """Properties to receive on trade update."""
+    asset_id: Optional[int] = None
+    trade_type: Optional[Literal['buy', 'sell']] = None
+    trade_date: Optional[datetime] = None
+    quantity: Optional[float] = None
+    price_per_unit: Optional[float] = None
+    currency: Optional[str] = None

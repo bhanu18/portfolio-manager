@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime
+from datetime import datetime, timedelta
 from forex_python.converter import CurrencyRates, RatesNotAvailableError
 from collections import defaultdict
 import yfinance as yf
@@ -118,36 +118,49 @@ async def get_ytd_performance(
     performance against a specified target.
     """
     now = datetime.utcnow()
-    start_of_year = datetime(now.year, 1, 1)
+    start_of_year = datetime(now.year, 1, 1)  
+    end_of_year = datetime(2026, 1, 1)  
 
     # --- 1. Calculate holdings and value at the START of the year ---
-    trades_before_ytd = await service.get_trades_before_date(db, end_date=start_of_year)
+    trades_before_ytd = await service.get_trades_in_date_range(db,start_date=start_of_year, end_date=end_of_year)
     holdings_start_of_year = defaultdict(float)
     for trade in trades_before_ytd:
         if trade.trade_type == 'buy':
             holdings_start_of_year[trade.asset_id] += trade.quantity
         else:
             holdings_start_of_year[trade.asset_id] -= trade.quantity
-
-    value_start_of_year = 0
-    assets = {asset.id: asset for asset in await service.get_all_assets(db)}
+            
+    value_start_of_year = 0.0
+    all_db_assets = await service.get_all_assets(db)
+    assets = {asset.id: asset for asset in all_db_assets}
     
+    print(f"\n[Step 1] Calculating start-of-year value for {len(holdings_start_of_year)} assets held on {start_of_year.date()}...")
     for asset_id, quantity in holdings_start_of_year.items():
         if quantity > 0 and asset_id in assets:
+            symbol = assets[asset_id].symbol
+            print(f"  -> Processing {symbol} (Quantity: {quantity})")
             try:
-                # Get historical price for the first trading day of the year
-                ticker = yf.Ticker(assets[asset_id].symbol)
-                hist = ticker.history(start=start_of_year, period="1d")
-                price_on_jan_1 = hist['Close'].iloc[-1] if not hist.empty else 0
-                value_start_of_year += quantity * price_on_jan_1
-            except Exception:
-                continue # Skip if historical price isn't available
+                ticker = yf.Ticker(symbol)
+                # Fetch data for the first few days of the year to get the first valid trading day
+                hist = ticker.history(start=start_of_year, end=start_of_year + timedelta(days=5), auto_adjust=True)
+                
+                if not hist.empty:
+                    # Use the first available closing price as the price on Jan 1st
+                    price_on_jan_1 = hist['Close'].iloc[0]
+                    value_start_of_year += quantity * price_on_jan_1
+                    print(f"     ...Success: Price on ~Jan 1st was {price_on_jan_1:.2f}. Added {quantity * price_on_jan_1:.2f} to start value.")
+                else:
+                    print(f"     ...Warning: No historical price data found for {symbol} at start of year. Skipping.")
+            except Exception as e:
+                print(f"     ...ERROR: Could not fetch yfinance data for {symbol}. Error: {e}. Skipping.")
+                continue
 
+    print(f"-> Calculated Start-of-Year Value: {value_start_of_year:.2f} USD")
+    
     # --- 2. Calculate net contributions and current holdings THIS year ---
     trades_this_year = await service.get_trades_in_date_range(db, start_date=start_of_year, end_date=now)
-    net_contributions_ytd = 0
-    holdings_now = defaultdict(float, holdings_start_of_year) # Start with beginning of year holdings
-
+    net_contributions_ytd = 0.0
+    holdings_now = defaultdict(float, holdings_start_of_year)
     for trade in trades_this_year:
         if trade.trade_type == 'buy':
             net_contributions_ytd += trade.quantity * trade.price_per_unit
@@ -156,24 +169,36 @@ async def get_ytd_performance(
             net_contributions_ytd -= trade.quantity * trade.price_per_unit
             holdings_now[trade.asset_id] -= trade.quantity
             
+    print(f"\n[Step 2] Calculated Net Contributions YTD: {net_contributions_ytd:.2f} USD")
+
     # --- 3. Calculate CURRENT market value of the portfolio ---
-    current_market_value = 0
+    current_market_value = 0.0
     for asset_id, quantity in holdings_now.items():
         if quantity > 0 and asset_id in assets and assets[asset_id].current_price:
             current_market_value += quantity * assets[asset_id].current_price
             
-    # --- 4. Calculate YTD Return ---
-    profit_loss_ytd = current_market_value - value_start_of_year - net_contributions_ytd
-    ytd_return_percent = (profit_loss_ytd / value_start_of_year) if value_start_of_year > 0 else 0
+    print(f"\n[Step 3] Calculated Current Market Value: {current_market_value:.2f} USD")
 
+    # --- 4. Calculate YTD Return, preventing division by zero ---
+    if value_start_of_year == 0:
+        profit_loss_ytd = current_market_value - net_contributions_ytd
+        ytd_return_percent = float('inf') if profit_loss_ytd > 0 else 0.0 # Handle case of starting from nothing
+    else:
+        profit_loss_ytd = current_market_value - value_start_of_year - net_contributions_ytd
+        ytd_return_percent = profit_loss_ytd / value_start_of_year
+
+    print(f"\n[Step 4] Final Calculation: P/L = {profit_loss_ytd:.2f}, Return = {ytd_return_percent*100:.2f}%")
+    print("--- Report Finished ---\n")
+
+    # Ensure all calculated values are standard Python types for JSON conversion
     return {
-        "start_of_year_value_usd": round(value_start_of_year, 2),
-        "current_market_value_usd": round(current_market_value, 2),
-        "net_contributions_ytd_usd": round(net_contributions_ytd, 2),
+        "start_of_year_value_usd": float(round(value_start_of_year, 2)),
+        "current_market_value_usd": float(round(current_market_value, 2)),
+        "net_contributions_ytd_usd": float(round(net_contributions_ytd, 2)),
         "performance": {
-            "profit_loss_ytd_usd": round(profit_loss_ytd, 2),
-            "ytd_return_percent": round(ytd_return_percent * 100, 2),
-            "target_return_percent": round(target_return * 100, 2),
-            "met_target": ytd_return_percent >= target_return
+            "profit_loss_ytd_usd": float(round(profit_loss_ytd, 2)),
+            "ytd_return_percent": float(round(ytd_return_percent * 100, 2)),
+            "target_return_percent": float(round(target_return * 100, 2)),
+            "met_target": bool(ytd_return_percent >= target_return)
         }
     }

@@ -245,7 +245,11 @@ async def get_all_users(db: AsyncSession, skip: int = 0, limit: int = 100):
 
 async def get_user_by_id(db: AsyncSession, user_id: int):
     """Fetches a single user by their ID."""
-    query = select(orm_models.User).where(orm_models.User.id == user_id)
+    query = (
+        select(orm_models.User)
+        .where(orm_models.User.id == user_id)
+        .options(selectinload(orm_models.User.group_associations)) # Eagerly load the links
+    )
     result = await db.execute(query)
     return result.scalar_one_or_none()
 
@@ -271,31 +275,28 @@ async def create_group(db: AsyncSession, group: group_schema.GroupCreate, owner:
     await db.refresh(db_group)
     return db_group
 
+# async def update_group(db: AsyncSession, db_group: orm_models.Group, group_in: group_schema.GroupUpdate):
+#     """Updates a group's details."""
+
+#     await db.commit()
+#     await db.refresh(db_group)
+#     return db_group
+
 async def get_group_by_id(db: AsyncSession, group_id: int):
     """Fetches a single group by its ID, pre-loading its members."""
-    query = select(orm_models.Group).where(orm_models.Group.id == group_id).options(
-        selectinload(orm_models.User.group_associations).selectinload(orm_models.UserGroupAssociation.group)
+    query = (
+        select(orm_models.Group)
+        .where(orm_models.Group.id == group_id)
+        .options(
+            selectinload(orm_models.Group.member_associations).selectinload(orm_models.UserGroupAssociation.user)
         )
+    )
     result = await db.execute(query)
     return result.scalar_one_or_none()
 
-async def add_user_to_group(db: AsyncSession, user: orm_models.User, group: orm_models.Group):
-    """Adds a user to a group's member list."""
-    if user not in group.members:
-        group.members.append(user)
-        await db.commit()
-    return group
-
-async def remove_user_from_group(db: AsyncSession, user: orm_models.User, group: orm_models.Group):
-    """Removes a user from a group's member list."""
-    if user in group.members:
-        group.members.remove(user)
-        await db.commit()
-    return group
-
 async def delete_group(db: AsyncSession, group: orm_models.Group):
     """Deletes a group, but only if it contains no assets."""
-    if group.assets:
+    if group.member_associations:
         # Prevent deletion if the group still owns assets
         return None 
     await db.delete(group)
@@ -328,9 +329,11 @@ async def add_or_update_user_in_group(
         
     await db.commit()
     # Eagerly load the members again to return the fully updated group object
-    await db.refresh(group, attribute_names=['member_associations'])
+    await db.refresh(group)
     
-    return group
+    updated_group = await get_group_by_id(db, group_id=group.id)
+    
+    return updated_group
 
 
 async def remove_user_from_group(db: AsyncSession, user: User, group: Group):
@@ -343,6 +346,8 @@ async def remove_user_from_group(db: AsyncSession, user: User, group: Group):
         await db.commit()
     
     # Eagerly load the members again to return the updated group
-    await db.refresh(group, attribute_names=['member_associations'])
+    await db.refresh(group)
     
-    return group
+    updated_group = await get_group_by_id(db, group_id=group.id)
+
+    return updated_group

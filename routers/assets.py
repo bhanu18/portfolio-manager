@@ -179,4 +179,4 @@ async def delete_an_asset(
             status_code=400,
             detail="Cannot delete asset. It is linked to existing trades."
         )
-    return
+    return {"message": "Asset deleted successfully."}

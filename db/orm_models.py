@@ -78,3 +78,11 @@ class Group(Base):
     name = Column(String(255), nullable=False, index=True)
     trades = relationship("Trade", back_populates="group")    
     member_associations = relationship("UserGroupAssociation", back_populates="group")
+    
+    @hybrid_property
+    def members(self):
+        """
+        A 'computed' property that provides a direct list of User objects
+        from the association objects. Pydantic will use this automatically.
+        """
+        return [association.user for association in self.member_associations]

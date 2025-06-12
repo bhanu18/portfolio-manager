@@ -40,6 +40,7 @@ async def get_group_details(
 
 @router.post("/{group_id}/members/{user_id}", response_model=group_schema.GroupWithMembers, tags=["Admin"])
 async def add_or_update_group_member(
+    group_id: int,
     user_id: int,
     role: GroupMemberRole, # The role to assign, sent in the request body
     group: Group = Depends(get_current_group_admin), # <-- This dependency protects the route
@@ -49,11 +50,16 @@ async def add_or_update_group_member(
     Add or update a user's role in a group.
     Only accessible to admins of this specific group.
     """
+    group = await service.get_group_by_id(db, group_id=group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+        
+    # This call now returns a "complete" user object with its groups loaded
     user_to_add = await service.get_user_by_id(db, user_id=user_id)
     if not user_to_add:
         raise HTTPException(status_code=404, detail="User to add not found")
-        
-    # This service function would need to be created/updated
+
+    # Now, we pass these complete objects to the service function, which will work correctly
     return await service.add_or_update_user_in_group(db, user=user_to_add, group=group, role=role)
 
 
@@ -74,8 +80,10 @@ async def remove_group_member(
     user_to_remove = await service.get_user_by_id(db, user_id=user_id)
     if not user_to_remove:
         raise HTTPException(status_code=404, detail="User to remove not found")
-
-    return await service.remove_user_from_group(db, user=user_to_remove, group=group)
+    
+    remaining_members = await service.remove_user_from_group(db, user=user_to_remove, group=group)
+    
+    return {'status': 'success', 'remaining_members': remaining_members}
 
 
 @router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Admin"])
@@ -93,6 +101,23 @@ async def delete_a_group(
     
     success = await service.delete_group(db, group=group)
     if not success:
-        raise HTTPException(status_code=400, detail="Cannot delete group. It may still contain assets.")
+        raise HTTPException(status_code=400, detail="Cannot delete group. It may still contain members.")
     
+    return {"detail": "Group deleted successfully."}
+
+@router.put("/{group_id}", response_model=group_schema.Group, tags=["Admin"])
+async def update_group(
+    group_id: int,
+    group_in: group_schema.GroupCreate,
+    db: AsyncSession = Depends(get_db),
+    admin_user: user_schema.User = Depends(get_current_active_admin_user)
+):
+    """
+    Update a group's details. (Admin Only)
+    """
+    group = await service.get_group_by_id(db, group_id=group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # return await service.update_group(db, group=group, group_in=group_in) 
     return

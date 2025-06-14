@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db import service
 from models import users as user_schema
 from models.token import TokenData
-from service.security import SECRET_KEY, ALGORITHM
+from core.config import settings
 
 # This object is what FastAPI uses to find the token in the request's header.
 # The tokenUrl points to your login endpoint.
@@ -35,7 +35,7 @@ async def get_current_user(
     )
     try:
         # Decode the JWT
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         # The 'sub' (subject) of our token is the user's email
         email: str = payload.get("sub")
         if email is None:

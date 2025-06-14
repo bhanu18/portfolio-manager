@@ -28,3 +28,11 @@ class AssetCreate(BaseModel):
     name: str
     market: str
     type: Literal['stock', 'crypto', 'cash']
+    
+class AssetUpdate(BaseModel):
+    """Properties to receive on asset update."""
+    symbol: Optional[str] = None
+    name: Optional[str] = None
+    market: Optional[str] = None
+    type: Optional[str] = None
+    currency: Optional[str] = None

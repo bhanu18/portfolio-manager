@@ -1,14 +1,15 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, status
 import yfinance as yf
 from datetime import datetime, timedelta
-from models.asset import Asset, AssetCreate
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
+import asyncio
 
 # Import our new dependencies and functions
-from db.dependencies import get_db
+import models.users as user_schema
+from models.asset import Asset, AssetCreate, AssetUpdate
+from db.dependencies import get_db, get_current_active_admin_user
 from db import service
-from models.asset import Asset, AssetCreate
 
 router = APIRouter(
     prefix="/assets",  # All routes in this router will start with /assets
@@ -17,7 +18,7 @@ router = APIRouter(
 )
 
 @router.get("/", response_model=List[Asset])
-async def read_all_assets(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
+async def read_all_assets(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db), current_user: user_schema.User = Depends(get_current_active_admin_user)):
     """
     Retrieve all assets from the database with pagination.
     """
@@ -92,43 +93,50 @@ async def create_asset(asset_in: AssetCreate, db: AsyncSession = Depends(get_db)
     # 4. Return the complete asset object to the user
     return new_asset
 
+def fetch_price_sync(symbol: str) -> float | None:
+    """
+    A standard synchronous function that fetches a price. This is what will be run
+    in a separate thread.
+    """
+    try:
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period="1d", auto_adjust=True)
+        if not hist.empty:
+            # Return the latest closing price, rounded
+            return round(hist['Close'].iloc[-1], 2)
+    except Exception as e:
+        # Print the error for debugging but don't crash the loop
+        print(f"  ...ERROR fetching yfinance data for {symbol}: {e}")
+    return None
+
 @router.post("/update-all-prices", summary="Update prices for all assets")
 async def update_all_asset_prices(db: AsyncSession = Depends(get_db)):
     """
-    Updates the current price for all assets that have not been updated
-    in the last 24 hours.
+    Fetches all assets from the database and updates the current price for each
+    one that has not been updated in the last 24 hours.
     """
     updated_symbols = []
     skipped_symbols = []
     now = datetime.utcnow()
-     # 1. Fetch all assets directly from the database
+    
     db_assets = await service.get_all_assets(db)
 
     for asset in db_assets:
-        # 2. Apply rate-limiting logic for each asset
         if asset.price_last_updated and (now - asset.price_last_updated < timedelta(days=1)):
             skipped_symbols.append(asset.symbol)
-            continue # Skip this asset, it was updated recently
-
-        # 3. If eligible, fetch the new price from yfinance
-        try:
-            ticker = yf.Ticker(asset.symbol)
-            hist = ticker.history(period="1d")
-            if not hist.empty:
-                new_price = round(hist['Close'].iloc[-1], 2)
-                
-                # 4. Call the CRUD function to update the asset in the database
-                await service.update_asset_price(db, asset=asset, new_price=new_price)
-                
-                updated_symbols.append(asset.symbol)
-            else:
-                # Could not find yfinance data
-                skipped_symbols.append(asset.symbol)
-
-        except Exception:
-            # If yfinance fails for one symbol, just skip it and move on
-            skipped_symbols.append(asset.symbol)
             continue
+
+        # Run the blocking yfinance call in a separate thread
+        # The main event loop is NOT blocked while this runs.
+        new_price = await asyncio.to_thread(fetch_price_sync, asset.symbol)
+        
+        if new_price is not None:
+            # If we got a price, call our async database service function
+            await service.update_asset_price(db, asset=asset, new_price=new_price)
+            updated_symbols.append(asset.symbol)
+        else:
+            # If fetching failed, just skip this asset
+            skipped_symbols.append(asset.symbol)
 
     return {
         "message": "Price update process finished.",
@@ -137,3 +145,38 @@ async def update_all_asset_prices(db: AsyncSession = Depends(get_db)):
         "updated_symbols": updated_symbols,
         "skipped_symbols": skipped_symbols
     }
+    
+@router.patch("/{asset_id}", response_model=Asset, tags=["Admin"])
+async def update_an_asset(
+    asset_id: int,
+    asset_in: AssetUpdate,
+    db: AsyncSession = Depends(get_db),
+    admin_user: user_schema.User = Depends(get_current_active_admin_user)
+):
+    """Update a global asset's details. (Admin Only)"""
+    # Use the public get_asset_by_id function since it's a global asset
+    db_asset = await service.get_asset_by_id(db, asset_id=asset_id)
+    if not db_asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+        
+    return await service.update_asset(db, db_asset=db_asset, asset_in=asset_in)
+
+
+@router.delete("/{asset_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Admin"])
+async def delete_an_asset(
+    asset_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin_user: user_schema.User = Depends(get_current_active_admin_user)
+):
+    """Delete a global asset. Fails if trades are linked to it. (Admin Only)"""
+    db_asset = await service.get_asset_by_id(db, asset_id=asset_id)
+    if not db_asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+        
+    success = await service.delete_asset(db, db_asset=db_asset)
+    if not success:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete asset. It is linked to existing trades."
+        )
+    return {"message": "Asset deleted successfully."}

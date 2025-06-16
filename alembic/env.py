@@ -5,6 +5,11 @@ from sqlalchemy import pool
 
 from alembic import context
 
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from core.config import settings
 
 # this is the Alembic Config object, which provides
@@ -18,6 +23,7 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 from db.orm_models import Base
+
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
@@ -41,7 +47,8 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url", settings.SYNC_DATABASE_URL)
+    # url = config.get_main_option("sqlalchemy.url", settings.SYNC_DATABASE_URL)
+    url = settings.SYNC_DATABASE_URL
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -60,6 +67,8 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    config.set_main_option('sqlalchemy.url', settings.SYNC_DATABASE_URL)
+    
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
@@ -67,9 +76,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

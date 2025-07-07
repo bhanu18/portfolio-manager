@@ -1,66 +1,75 @@
-import pytest
+import asyncio
 import os
 import sys
-from typing import Generator, Any, AsyncGenerator
+from typing import Any, AsyncGenerator
+
+import pytest_asyncio
+from alembic.config import Config
+from alembic import command
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
+# --- Add project root to path ---
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-# Set the TESTING environment variable before any other imports
 os.environ['TESTING'] = '1'
 
-from main import app # Import your FastAPI app
-from db.session import engine
-from db.orm_models import Base
+from main import app
 from db.dependencies import get_db
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.asyncio import AsyncSession
+from db.orm_models import Base
+from core.config import settings
 
+# This fixture creates a new event loop for the entire test session.
+@pytest_asyncio.fixture(scope="session")
+def event_loop():
+    """Create an instance of the default event loop for the test session."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
 
-# Create a separate Test Session factory
-TestingSessionLocal = sessionmaker(
-    autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
-)
-
-# This fixture runs once for the entire test session
-@pytest.fixture(scope="session", autouse=True)
+# This fixture sets up and tears down the database schema once per session.
+@pytest_asyncio.fixture(scope="session", autouse=True)
 def setup_test_db():
-    # Create all database tables
-    async def setup_db_async():
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-    
-    import asyncio
-    asyncio.run(setup_db_async())
-    
-    yield # The tests run here
-    
-    # Teardown: Drop all database tables
-    async def teardown_db_async():
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-    
-    asyncio.run(teardown_db_async())
-
-
-# This fixture provides a database session for a single test
-@pytest.fixture(scope="function")
-async def db_session() -> AsyncGenerator[AsyncSession, None]:
-    async with TestingSessionLocal() as session:
-        yield session
-
-# This fixture provides an API client for making requests
-@pytest.fixture(scope="function")
-def client(db_session: AsyncSession) -> Generator[TestClient, Any, None]:
     """
-    Create a new TestClient that uses the test database for the duration of a test.
+    Set up the test database by running Alembic migrations before any tests run,
+    and downgrading after all tests have finished.
     """
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass # The session is managed by the db_session fixture
+    alembic_cfg = Config("alembic.ini")
+    alembic_cfg.set_main_option("sqlalchemy.url", settings.SYNC_DATABASE_URL)
+    
+    # Apply all migrations
+    command.upgrade(alembic_cfg, "head")
+    yield
+    # Downgrade the database to the base state
+    command.downgrade(alembic_cfg, "base")
 
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as c:
-        yield c
+# --- THIS IS THE NEW, CORRECT FIXTURE FOR THE CLIENT ---
+@pytest_asyncio.fixture(scope="function")
+async def client() -> AsyncGenerator[TestClient, Any]:
+    """
+    Provides a TestClient with a transactional database session for each test.
+    The transaction is rolled back after the test.
+    """
+    engine = create_async_engine(settings.TEST_DATABASE_URL)
+    
+    async with engine.connect() as connection:
+        async with connection.begin() as transaction:
+            TestingSessionLocal = sessionmaker(
+                bind=connection, class_=AsyncSession, expire_on_commit=False
+            )
+            db_session = TestingSessionLocal()
+
+            async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
+                yield db_session
+
+            app.dependency_overrides[get_db] = override_get_db
+
+            # Yield the TestClient to the test function
+            with TestClient(app) as c:
+                yield c
+            
+            # The transaction is automatically rolled back when the `async with` block exits.
+            # No need for an explicit rollback call unless there's an error to handle.
+            
+    app.dependency_overrides.clear()
+    await engine.dispose()

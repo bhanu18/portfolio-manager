@@ -269,7 +269,7 @@ async def create_user(db: AsyncSession, user: user_schema.UserCreate):
     )
     db.add(db_user)
     await db.commit()
-    
+    await db.refresh(db_user)
     new_user = await get_user_by_id(db, user_id=db_user.id)
     return new_user
 

@@ -152,7 +152,7 @@ async def import_csv_to_db():
                 trade_type="buy",  # Assuming CSV is all buys based on your snippet
                 trade_date=row["Date"],
                 quantity=float(row["Quantity"]),
-                price_per_unit=float(row["Purchase Price"]),
+                price_per_unit=float(purchase_price),
                 currency=row["Currency"],
                 group_id=1
             )

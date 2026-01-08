@@ -134,5 +134,4 @@ async def delete_a_trade(
     if not any(member.id == current_user.id for member in db_trade.group.members):
         raise HTTPException(status_code=403, detail="Not authorized to delete this trade")
         
-    await service.delete_trade(db, db_trade=db_trade)
-    return
+    return await service.delete_trade(db, db_trade=db_trade)

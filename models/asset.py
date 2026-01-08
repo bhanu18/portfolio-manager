@@ -34,5 +34,5 @@ class AssetUpdate(BaseModel):
     symbol: Optional[str] = None
     name: Optional[str] = None
     market: Optional[str] = None
-    type: Optional[str] = None
+    type: Literal['stock', 'crypto', 'cash']
     currency: Optional[str] = None

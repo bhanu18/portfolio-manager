@@ -82,10 +82,8 @@ async def get_portfolio_valuation_by_symbol(
     # 6. Calculate final values
     current_value_target = current_value_usd * usd_to_target_rate
 
-    # The historical cost calculation is assumed to be based on USD trades
-    # (as per our Trade model). This part of the logic remains valid.
-    total_cost_target_currency = 0
-    # ... (historical cost calculation logic remains the same)
+    # Convert the historical cost from USD to target currency
+    total_cost_target_currency = total_cost_usd * usd_to_target_rate
 
     profit_loss_target = current_value_target - total_cost_target_currency
 
@@ -118,11 +116,10 @@ async def get_ytd_performance(
     performance against a specified target.
     """
     now = datetime.utcnow()
-    start_of_year = datetime(now.year, 1, 1)  
-    end_of_year = datetime(2026, 1, 1)  
+    start_of_year = datetime(now.year, 1, 1)
 
     # --- 1. Calculate holdings and value at the START of the year ---
-    trades_before_ytd = await service.get_trades_in_date_range(db,start_date=start_of_year, end_date=end_of_year)
+    trades_before_ytd = await service.get_trades_before_date(db, end_date=start_of_year)
     holdings_start_of_year = defaultdict(float)
     for trade in trades_before_ytd:
         if trade.trade_type == 'buy':

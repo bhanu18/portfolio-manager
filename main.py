@@ -1,11 +1,30 @@
 from fastapi import FastAPI, Request
 import time
+import os
 from routers import assets, trades, reports, auth, group
+from alembic.config import Config
+from alembic import command
 
 
 app = FastAPI(title="Portfolio Management API",
     description="API for managing assets, trades, and reports in a portfolio.",
-    version="1.0.0") 
+    version="1.0.0")
+
+# --- AUTO-MIGRATION LOGIC ---
+@app.on_event("startup")
+def run_migrations():
+    # Only run this if we are in a cloud environment
+    # (Checks if the DB URL is set)
+    if os.getenv("DATABASE_URL"):
+        try:
+            print("Running DB Migrations...")
+            alembic_cfg = Config("alembic.ini")
+            alembic_cfg.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL"))
+            command.upgrade(alembic_cfg, "head")
+            print("Migrations complete!")
+        except Exception as e:
+            print(f"Migration failed: {e}")
+# -----------------------------
 
 app.include_router(assets.router)
 app.include_router(trades.router)

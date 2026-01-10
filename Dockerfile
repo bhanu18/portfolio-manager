@@ -16,4 +16,4 @@ COPY . .
 
 # 6. Command to run the application
 # Cloud Run injects the $PORT variable (usually 8080) automatically
-CMD exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}

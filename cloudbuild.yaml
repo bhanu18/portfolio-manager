@@ -1,0 +1,29 @@
+steps:
+  # 1. Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/portfolio-tracker:$COMMIT_SHA', '.']
+
+  # 2. Push the image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/portfolio-tracker:$COMMIT_SHA']
+
+  # 3. Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'portfolio-tracker'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/portfolio-tracker:$COMMIT_SHA'
+      - '--region'
+      - 'asia-southeast1'  # <--- CHANGED TO SINGAPORE
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+
+images:
+  - 'gcr.io/$PROJECT_ID/portfolio-tracker:$COMMIT_SHA'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

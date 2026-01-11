@@ -1,14 +1,21 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Request
 from models.email import EmailRequest, EmailResponse
 from models import users as user_schema
 from service.email import email_service
 from db.dependencies import get_current_active_regular_user
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 router = APIRouter(prefix="/email", tags=["Email"])
 
+# Initialize rate limiter for this router
+limiter = Limiter(key_func=get_remote_address)
+
 
 @router.post("/sendemail", response_model=EmailResponse, status_code=status.HTTP_200_OK)
+@limiter.limit("10/hour")
 async def send_email(
+    request: Request,
     email_data: EmailRequest,
     current_user: user_schema.User = Depends(get_current_active_regular_user)
 ):
@@ -17,6 +24,9 @@ async def send_email(
 
     **Authentication Required:** This endpoint requires a valid JWT token and USER role.
     Only users with USER role can access this endpoint (ADMIN users are excluded).
+
+    **Rate Limiting:** This endpoint is rate-limited to 10 emails per hour per IP address
+    to prevent spam and abuse. If you exceed this limit, you'll receive a 429 error.
 
     - **to**: List of recipient email addresses
     - **subject**: Email subject line

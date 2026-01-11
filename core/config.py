@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     SYNC_DATABASE_URL: str
     
+    # --- Testing ---
+    TEST_DATABASE_URL: str
+    
     # --- Security ---
     SECRET_KEY: str
     ALGORITHM: str = "HS256"

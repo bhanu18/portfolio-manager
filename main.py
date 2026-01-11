@@ -5,11 +5,21 @@ from routers import assets, trades, reports, auth, group, email
 from fastapi.middleware.cors import CORSMiddleware
 from alembic.config import Config
 from alembic import command
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
+# Initialize rate limiter
+# This will track requests by IP address
+limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(title="Portfolio Management API",
     description="API for managing assets, trades, and reports in a portfolio.",
     version="1.0.0")
+
+# Add rate limiter to app state
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # --- AUTO-MIGRATION LOGIC ---
 @app.on_event("startup")

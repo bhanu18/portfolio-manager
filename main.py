@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 import time
 import os
 from routers import assets, trades, reports, auth, group, email
+from fastapi.middleware.cors import CORSMiddleware
 from alembic.config import Config
 from alembic import command
 
@@ -25,6 +26,19 @@ def run_migrations():
         except Exception as e:
             print(f"Migration failed: {e}")
 # -----------------------------
+
+origins = [
+    "http://localhost:5173",      # React / Next.js local dev
+    "https://www.paulbespokesuits.com", # Your production frontend domain
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,        # Who can call your API
+    allow_credentials=True,       # Allow cookies/auth headers
+    allow_methods=["*"],          # Allow all methods (GET, POST, PUT, DELETE)
+    allow_headers=["*"],          # Allow all headers
+)
 
 app.include_router(assets.router)
 app.include_router(trades.router)

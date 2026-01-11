@@ -1,14 +1,22 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from models.email import EmailRequest, EmailResponse
+from models import users as user_schema
 from service.email import email_service
+from db.dependencies import get_current_active_regular_user
 
 router = APIRouter(prefix="/email", tags=["Email"])
 
 
 @router.post("/sendemail", response_model=EmailResponse, status_code=status.HTTP_200_OK)
-async def send_email(email_data: EmailRequest):
+async def send_email(
+    email_data: EmailRequest,
+    current_user: user_schema.User = Depends(get_current_active_regular_user)
+):
     """
     Send an email to one or more recipients.
+
+    **Authentication Required:** This endpoint requires a valid JWT token and USER role.
+    Only users with USER role can access this endpoint (ADMIN users are excluded).
 
     - **to**: List of recipient email addresses
     - **subject**: Email subject line
@@ -19,7 +27,10 @@ async def send_email(email_data: EmailRequest):
     ```javascript
     fetch('http://your-api-url/email/sendemail', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer YOUR_JWT_TOKEN'  // Required!
+        },
         body: JSON.stringify({
             to: ['user@example.com'],
             subject: 'Portfolio Update',

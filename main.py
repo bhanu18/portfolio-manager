@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
 import time
-from routers import assets, trades, reports, auth, group
+from routers import assets, trades, reports, auth, group, email
 
 
 app = FastAPI(title="Portfolio Management API",
@@ -12,6 +12,7 @@ app.include_router(trades.router)
 app.include_router(reports.router)
 app.include_router(auth.router)
 app.include_router(group.router)
+app.include_router(email.router)
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):

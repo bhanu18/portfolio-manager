@@ -148,7 +148,8 @@ async def update_all_asset_prices(db: AsyncSession = Depends(get_db)):
 
         if new_price is not None:
             # If we got a price, call our async database service function
-            await service.update_asset_price(db, asset=asset, new_price=new_price)
+            # Pass asset_id instead of asset object to avoid session detachment issues
+            await service.update_asset_price(db, asset_id=asset.id, new_price=new_price)
             updated_symbols.append(asset.symbol)
         else:
             # If fetching failed, just skip this asset

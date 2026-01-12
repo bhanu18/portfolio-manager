@@ -48,15 +48,6 @@ async def get_asset_by_symbol_or_id(
         raise ValueError("Either 'symbol' or 'asset_id' must be provided.")
 
 
-async def get_all_assets(db: AsyncSession, skip: int = 0, limit: int = 100):
-    """
-    Fetches all assets from the global list. No ownership is checked.
-    """
-    query = select(orm_models.Asset).offset(skip).limit(limit)
-    result = await db.execute(query)
-    return result.scalars().all()
-
-
 async def get_asset_by_id(db: AsyncSession, asset_id: int):
     """
     Fetches a single global asset by its ID. No ownership is checked.

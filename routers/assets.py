@@ -33,9 +33,9 @@ async def read_all_assets(
 
 
 @router.get("/{symbol}")
-async def get_asset_by_symbol(symbol: str):
+async def get_asset_by_symbol(symbol: str, db: AsyncSession = Depends(get_db)):
 
-    asset = await service.get_asset_by_symbol_or_id(symbol=symbol)
+    asset = await service.get_asset_by_symbol_or_id(db=db, symbol=symbol)
     if asset:
         return asset
     return {"error": "Asset not found"}, 404

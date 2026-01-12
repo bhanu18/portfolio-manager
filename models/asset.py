@@ -11,7 +11,7 @@ class Asset(BaseModel):
     name: str
     market: str
     
-    type: Literal['stock', 'crypto', 'cash']
+    type: Literal['stock', 'crypto', 'cash', 'etf']
     
     # We'll make current_price optional as it will be populated by our API
     current_price: Optional[float] = None
@@ -27,12 +27,12 @@ class AssetCreate(BaseModel):
     symbol: str
     name: str
     market: str
-    type: Literal['stock', 'crypto', 'cash']
+    type: Literal['stock', 'crypto', 'cash', 'etf']
     
 class AssetUpdate(BaseModel):
     """Properties to receive on asset update."""
     symbol: Optional[str] = None
     name: Optional[str] = None
     market: Optional[str] = None
-    type: Literal['stock', 'crypto', 'cash']
+    type: Literal['stock', 'crypto', 'cash', 'etf']
     currency: Optional[str] = None

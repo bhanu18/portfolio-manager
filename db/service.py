@@ -48,15 +48,6 @@ async def get_asset_by_symbol_or_id(
         raise ValueError("Either 'symbol' or 'asset_id' must be provided.")
 
 
-async def get_all_assets(db: AsyncSession, skip: int = 0, limit: int = 100):
-    """
-    Fetches all assets from the global list. No ownership is checked.
-    """
-    query = select(orm_models.Asset).offset(skip).limit(limit)
-    result = await db.execute(query)
-    return result.scalars().all()
-
-
 async def get_asset_by_id(db: AsyncSession, asset_id: int):
     """
     Fetches a single global asset by its ID. No ownership is checked.
@@ -117,17 +108,21 @@ async def delete_asset(db: AsyncSession, db_asset: orm_models.Asset):
 
 
 async def update_asset_price(
-    db: AsyncSession, asset: orm_models.Asset, new_price: float
+    db: AsyncSession, asset_id: int, new_price: float
 ):
     """
-    Updates the price and timestamp for a given asset record.
+    Updates the price and timestamp for a given asset by ID.
+    Refetches the asset to ensure it's properly attached to the session.
     """
+    # Refetch the asset to ensure it's attached to the current session
+    asset = await get_asset_by_id(db, asset_id=asset_id)
+    if not asset:
+        return None
+
     asset.current_price = new_price
     asset.price_last_updated = datetime.utcnow()
 
     await db.commit()
-
-    # Refresh the instance to get the latest data from the DB, like the 'updated_at' timestamp
     await db.refresh(asset)
 
     return asset

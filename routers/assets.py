@@ -33,9 +33,9 @@ async def read_all_assets(
 
 
 @router.get("/{symbol}")
-async def get_asset_by_symbol(symbol: str):
+async def get_asset_by_symbol(symbol: str, db: AsyncSession = Depends(get_db)):
 
-    asset = await service.get_asset_by_symbol_or_id(symbol=symbol)
+    asset = await service.get_asset_by_symbol_or_id(db=db, symbol=symbol)
     if asset:
         return asset
     return {"error": "Asset not found"}, 404
@@ -72,7 +72,6 @@ async def create_asset(asset_in: AssetCreate, db: AsyncSession = Depends(get_db)
         # You can also use 'currentPrice'
         info = ticker.info
         current_price = info.get("regularMarketPrice")
-        asset_currency = info.get("currency", "USD").upper()
 
         if current_price is None:
             # Fallback for some assets or if the market is closed
@@ -96,7 +95,6 @@ async def create_asset(asset_in: AssetCreate, db: AsyncSession = Depends(get_db)
     # 2. Prepare the complete asset data dictionary
     asset_data = asset_in.model_dump()
     asset_data["current_price"] = current_price
-    asset_data["currency"] = asset_currency
     asset_data["created_at"] = datetime.utcnow()
     asset_data["updated_at"] = datetime.utcnow()
     # 3. Call the CRUD function to create the asset in the database
@@ -148,7 +146,8 @@ async def update_all_asset_prices(db: AsyncSession = Depends(get_db)):
 
         if new_price is not None:
             # If we got a price, call our async database service function
-            await service.update_asset_price(db, asset=asset, new_price=new_price)
+            # Pass asset_id instead of asset object to avoid session detachment issues
+            await service.update_asset_price(db, asset_id=asset.id, new_price=new_price)
             updated_symbols.append(asset.symbol)
         else:
             # If fetching failed, just skip this asset

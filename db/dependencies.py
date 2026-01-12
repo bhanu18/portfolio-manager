@@ -78,6 +78,21 @@ def get_current_active_admin_user(
         )
     return current_user
 
+def get_current_active_regular_user(
+    current_user: user_schema.User = Depends(get_current_active_user),
+) -> user_schema.User:
+    """
+    Dependency that checks if the current user is active AND has USER role only.
+    This excludes ADMIN users from accessing the endpoint.
+    If the user is not a regular USER, it raises an HTTPException.
+    """
+    if current_user.role != UserRole.USER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This endpoint is only accessible to users with USER role",
+        )
+    return current_user
+
 async def get_group_from_path(group_id: int, db: AsyncSession = Depends(get_db)) -> Group:
     """Dependency to fetch a group by ID from the path."""
     group = await service.get_group_by_id(db, group_id=group_id)

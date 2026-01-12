@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Any, List
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from db.dependencies import get_db
 from db import service
@@ -11,12 +13,22 @@ from db.dependencies import get_current_active_admin_user, get_current_active_us
 
 router = APIRouter(tags=["Authentication"])
 
+# Initialize rate limiter for this router
+limiter = Limiter(key_func=get_remote_address)
+
 @router.post("/register", response_model=user_schema.User)
+@limiter.limit("3/hour")
 async def register_new_user(
-    user_in: user_schema.UserCreate, 
+    request: Request,
+    user_in: user_schema.UserCreate,
     db: AsyncSession = Depends(get_db)
 ) -> Any:
-    """Create a new user."""
+    """
+    Create a new user.
+
+    **Rate Limiting:** This endpoint is rate-limited to 3 registrations per hour per IP address
+    to prevent spam account creation.
+    """
     user = await service.get_user_by_email(db, email=user_in.email)
     if user:
         raise HTTPException(
@@ -28,11 +40,19 @@ async def register_new_user(
 
 
 @router.post("/login/access-token")
+@limiter.limit("5/minute")
 async def login_for_access_token(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Any:
-    """OAuth2 compatible token login, get an access token for future requests."""
+    """
+    OAuth2 compatible token login, get an access token for future requests.
+
+    **Rate Limiting:** This endpoint is rate-limited to 5 attempts per minute per IP address
+    to prevent brute force attacks. If you exceed this limit, you'll receive a 429 error
+    and must wait before trying again.
+    """
     user = await service.get_user_by_email(db, email=form_data.username) # form_data.username is the email
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(

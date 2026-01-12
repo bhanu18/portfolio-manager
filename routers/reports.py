@@ -52,25 +52,48 @@ async def get_portfolio_valuation_by_symbol(
 
     avg_cost_usd = total_cost_usd / total_quantity
 
-    # 3. Calculate current value in the asset's NATIVE currency
+    # 3. Determine the asset's currency
+    # Since assets table doesn't have currency, we'll infer it from:
+    # 1. yfinance data, or 2. market field, or 3. default to USD
+    asset_currency = "USD"  # Default
+
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(asset.symbol)
+        info = ticker.info
+        asset_currency = info.get("currency", "USD").upper()
+    except Exception:
+        # If yfinance fails, infer from market
+        market_currency_map = {
+            "NASDAQ": "USD",
+            "NYSE": "USD",
+            "THAI": "THB",
+            "SET": "THB",  # Stock Exchange of Thailand
+            "TSE": "JPY",  # Tokyo Stock Exchange
+            "LSE": "GBP",  # London Stock Exchange
+            "NSE": "INR",  # National Stock Exchange of India
+        }
+        asset_currency = market_currency_map.get(asset.market.upper(), "USD")
+
+    # 4. Calculate current value in the asset's NATIVE currency
     current_value_native = total_quantity * asset.current_price
 
-    # 4. Convert the native value to our common base currency (USD)
+    # 5. Convert the native value to our common base currency (USD)
     current_value_usd = 0
-    if asset.currency == "USD":
+    if asset_currency == "USD":
         current_value_usd = current_value_native
     else:
         try:
             # Get rate to convert from the asset's currency TO USD
-            rate_to_usd = c.get_rate(asset.currency, "USD")
+            rate_to_usd = c.get_rate(asset_currency, "USD")
             current_value_usd = current_value_native * rate_to_usd
         except RatesNotAvailableError:
             raise HTTPException(
                 status_code=503,
-                detail=f"Exchange rate from {asset.currency} to USD is unavailable.",
+                detail=f"Exchange rate from {asset_currency} to USD is unavailable.",
             )
 
-    # 5. Get the CURRENT exchange rate to convert from USD to the TARGET currency
+    # 6. Get the CURRENT exchange rate to convert from USD to the TARGET currency
     try:
         usd_to_target_rate = c.get_rate("USD", target_currency.upper())
     except RatesNotAvailableError:
@@ -79,7 +102,7 @@ async def get_portfolio_valuation_by_symbol(
             detail=f"Exchange rates for {target_currency} are currently unavailable.",
         )
 
-    # 6. Calculate final values
+    # 7. Calculate final values
     current_value_target = current_value_usd * usd_to_target_rate
 
     # Convert the historical cost from USD to target currency
@@ -89,7 +112,7 @@ async def get_portfolio_valuation_by_symbol(
 
     return {
         "symbol": asset.symbol,
-        "asset_native_currency": asset.currency,  # Add this for clarity
+        "asset_native_currency": asset_currency,  # Currency determined from yfinance or market
         "reporting_currency": target_currency.upper(),
         "holdings": {
             "quantity": total_quantity,

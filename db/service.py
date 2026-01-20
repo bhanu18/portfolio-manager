@@ -294,6 +294,15 @@ async def get_user_by_id(db: AsyncSession, user_id: int):
     return result.scalar_one_or_none()
 
 
+async def update_user_password(db: AsyncSession, user: orm_models.User, new_password: str):
+    """Updates a user's password with a new hashed password."""
+    user.hashed_password = get_password_hash(new_password)
+    user.updated_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
 # =================================================================
 # === COMPLETE GROUP SERVICE FUNCTIONS ===
 # =================================================================

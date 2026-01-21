@@ -29,3 +29,20 @@ class User(UserBase):
 # Properties stored in DB
 class UserInDB(UserBase):
     hashed_password: str
+
+
+# Password change request (for authenticated users)
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+
+# Forgot password request
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+# Reset password request (with token)
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str

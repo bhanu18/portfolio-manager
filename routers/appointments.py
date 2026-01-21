@@ -12,7 +12,7 @@ Endpoints:
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
-from datetime import datetime, date
+from datetime import datetime, date as date_type
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -62,7 +62,7 @@ def convert_to_response(appointment) -> AppointmentResponse:
         name=appointment.name,
         email=appointment.email,
         phone=appointment.phone,
-        date=appointment.date.date() if isinstance(appointment.date, datetime) else appointment.date,
+        appointment_date=appointment.date.date() if isinstance(appointment.date, datetime) else appointment.date,
         time_slot=appointment.time_slot,
         express_service=appointment.express_service,
         service_display_name=SERVICE_DISPLAY_NAMES.get(
@@ -101,7 +101,7 @@ async def book_appointment(
     Returns the booking details including a unique booking reference number.
     """
     # Validate appointment date
-    is_valid_date, date_error = validate_appointment_date(appointment_data.date)
+    is_valid_date, date_error = validate_appointment_date(appointment_data.appointment_date)
     if not is_valid_date:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -111,7 +111,7 @@ async def book_appointment(
     # Validate time slot
     is_valid_slot, slot_error = validate_time_slot(
         appointment_data.time_slot,
-        appointment_data.date
+        appointment_data.appointment_date
     )
     if not is_valid_slot:
         raise HTTPException(
@@ -120,7 +120,7 @@ async def book_appointment(
         )
 
     # Check for double-booking
-    target_datetime = datetime.combine(appointment_data.date, datetime.min.time())
+    target_datetime = datetime.combine(appointment_data.appointment_date, datetime.min.time())
     existing_appointments = await service.get_appointments_by_date_and_slot(
         db, target_datetime, appointment_data.time_slot
     )
@@ -148,7 +148,7 @@ async def book_appointment(
         "name": appointment_data.name,
         "email": appointment_data.email,
         "phone": appointment_data.phone,
-        "date": datetime.combine(appointment_data.date, datetime.min.time()),
+        "date": datetime.combine(appointment_data.appointment_date, datetime.min.time()),
         "time_slot": appointment_data.time_slot,
         "express_service": appointment_data.express_service,
         "garment_details": appointment_data.garment_details,
@@ -167,7 +167,7 @@ async def book_appointment(
         customer_name=appointment_data.name,
         customer_email=appointment_data.email,
         booking_reference=booking_reference,
-        appointment_date=appointment_data.date,
+        appointment_date=appointment_data.appointment_date,
         time_slot=appointment_data.time_slot,
         service=appointment_data.express_service,
         garment_details=appointment_data.garment_details,
@@ -180,7 +180,7 @@ async def book_appointment(
         customer_email=appointment_data.email,
         customer_phone=appointment_data.phone,
         booking_reference=booking_reference,
-        appointment_date=appointment_data.date,
+        appointment_date=appointment_data.appointment_date,
         time_slot=appointment_data.time_slot,
         service=appointment_data.express_service,
         garment_details=appointment_data.garment_details,
@@ -198,7 +198,7 @@ async def book_appointment(
 @router.get("/available-slots", response_model=AvailableSlotsResponse)
 async def get_available_slots(
     request: Request,
-    date: date = Query(..., description="Date to check availability (YYYY-MM-DD)"),
+    date: date_type = Query(..., description="Date to check availability (YYYY-MM-DD)"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -226,7 +226,7 @@ async def get_available_slots(
     slots = get_available_slots_for_date(date, existing_appointments)
 
     return AvailableSlotsResponse(
-        date=date,
+        query_date=date,
         slots=slots,
         business_hours="10:00 AM - 7:00 PM"
     )
@@ -456,8 +456,8 @@ async def list_appointments(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of records to return"),
     status: Optional[str] = Query(None, description="Filter by status (pending, confirmed, cancelled, completed)"),
-    from_date: Optional[date] = Query(None, description="Filter appointments from this date"),
-    to_date: Optional[date] = Query(None, description="Filter appointments up to this date"),
+    from_date: Optional[date_type] = Query(None, description="Filter appointments from this date"),
+    to_date: Optional[date_type] = Query(None, description="Filter appointments up to this date"),
     db: AsyncSession = Depends(get_db),
     current_admin: user_schema.User = Depends(get_current_active_admin_user)
 ):

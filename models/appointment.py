@@ -2,8 +2,8 @@
 Pydantic models for Express Tailoring appointment booking system.
 Paul Bespoke Suits - Bangkok, Thailand
 """
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
-from datetime import datetime, date, time
+from pydantic import BaseModel, EmailStr, Field, field_validator
+from datetime import datetime, date as date_type, time
 from typing import Optional, List
 from enum import Enum
 
@@ -68,7 +68,7 @@ class AppointmentCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=100, description="Customer name")
     email: EmailStr = Field(..., description="Customer email address")
     phone: str = Field(..., min_length=8, max_length=20, description="Customer phone number")
-    date: date = Field(..., description="Appointment date (YYYY-MM-DD)")
+    appointment_date: date_type = Field(..., alias="date", description="Appointment date (YYYY-MM-DD)")
     time_slot: str = Field(..., alias="timeSlot", description="Appointment time slot (e.g., '2:00 PM')")
     express_service: ExpressService = Field(..., alias="expressService", description="Type of express service")
     garment_details: Optional[str] = Field(None, alias="garmentDetails", max_length=500, description="Garment details")
@@ -116,7 +116,7 @@ class AppointmentResponse(BaseModel):
     name: str
     email: str
     phone: str
-    date: date
+    appointment_date: date_type = Field(..., alias="date")
     time_slot: str
     express_service: ExpressService
     service_display_name: str
@@ -129,6 +129,7 @@ class AppointmentResponse(BaseModel):
 
     model_config = {
         "from_attributes": True,
+        "populate_by_name": True,
         "json_schema_extra": {
             "example": {
                 "id": 1,
@@ -168,9 +169,13 @@ class AvailableSlot(BaseModel):
 
 class AvailableSlotsResponse(BaseModel):
     """Response model for available slots query."""
-    date: date
+    query_date: date_type = Field(..., alias="date")
     slots: List[AvailableSlot]
     business_hours: str = "10:00 AM - 7:00 PM"
+
+    model_config = {
+        "populate_by_name": True,
+    }
 
 
 class AppointmentStatusUpdate(BaseModel):

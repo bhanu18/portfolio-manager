@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 import time
 import os
-from routers import assets, trades, reports, auth, group, email
+from routers import assets, trades, reports, auth, group, email, appointments
 from fastapi.middleware.cors import CORSMiddleware
 from alembic.config import Config
 from alembic import command
@@ -56,6 +56,7 @@ app.include_router(reports.router)
 app.include_router(auth.router)
 app.include_router(group.router)
 app.include_router(email.router)
+app.include_router(appointments.router)
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):

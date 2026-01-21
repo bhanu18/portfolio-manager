@@ -86,3 +86,67 @@ class Group(Base):
         from the association objects. Pydantic will use this automatically.
         """
         return [association.user for association in self.member_associations]
+
+
+class AppointmentStatus(str, enum.Enum):
+    """Status values for appointments."""
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    CANCELLED = "cancelled"
+    COMPLETED = "completed"
+
+
+class ExpressServiceType(str, enum.Enum):
+    """Available express tailoring services."""
+    HEM_PANTS = "hem_pants"
+    SHORTEN_SLEEVES = "shorten_sleeves"
+    TAKE_IN_WAIST = "take_in_waist"
+    TAKE_IN_SIDES = "take_in_sides"
+    BUTTON_REPLACEMENT = "button_replacement"
+    ZIPPER_REPAIR = "zipper_repair"
+    EMERGENCY_REPAIR = "emergency_repair"
+    EXPRESS_CUSTOM_SHIRT = "express_custom_shirt"
+    OTHER = "other"
+
+
+class Appointment(Base):
+    """
+    Express Tailoring Appointment model for Paul Bespoke Suits.
+    Stores customer booking information and appointment status.
+    """
+    __tablename__ = "appointments"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+
+    # Booking reference (unique identifier for customers)
+    booking_reference = Column(String(50), unique=True, nullable=False, index=True)
+
+    # Customer information
+    name = Column(String(100), nullable=False)
+    email = Column(String(255), nullable=False, index=True)
+    phone = Column(String(20), nullable=False)
+
+    # Appointment scheduling
+    date = Column(DateTime, nullable=False, index=True)  # Stores date portion
+    time_slot = Column(String(20), nullable=False)  # e.g., "2:00 PM"
+    estimated_end_time = Column(String(20), nullable=True)  # Calculated end time
+
+    # Service details
+    express_service = Column(
+        SQLAlchemyEnum(ExpressServiceType, name='express_service_enum'),
+        nullable=False
+    )
+    garment_details = Column(String(500), nullable=True)
+    special_requests = Column(String(500), nullable=True)
+
+    # Status tracking
+    status = Column(
+        SQLAlchemyEnum(AppointmentStatus, name='appointment_status_enum'),
+        nullable=False,
+        default=AppointmentStatus.PENDING
+    )
+    admin_notes = Column(String(500), nullable=True)  # Notes from admin on confirm/cancel
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)

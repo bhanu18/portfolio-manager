@@ -412,3 +412,163 @@ async def remove_user_from_group(db: AsyncSession, user: User, group: Group):
     updated_group = await get_group_by_id(db, group_id=group.id)
 
     return updated_group
+
+
+# =================================================================
+# === APPOINTMENT SERVICE FUNCTIONS ===
+# =================================================================
+
+
+async def create_appointment(db: AsyncSession, appointment_data: dict):
+    """
+    Creates a new appointment record.
+    """
+    db_appointment = orm_models.Appointment(**appointment_data)
+    db.add(db_appointment)
+    await db.commit()
+    await db.refresh(db_appointment)
+    return db_appointment
+
+
+async def get_appointment_by_id(db: AsyncSession, appointment_id: int):
+    """Fetches a single appointment by its ID."""
+    query = select(orm_models.Appointment).where(
+        orm_models.Appointment.id == appointment_id
+    )
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def get_appointment_by_reference(db: AsyncSession, booking_reference: str):
+    """Fetches a single appointment by its booking reference."""
+    query = select(orm_models.Appointment).where(
+        orm_models.Appointment.booking_reference == booking_reference
+    )
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def get_appointments_by_date(db: AsyncSession, target_date: datetime):
+    """
+    Fetches all appointments for a specific date.
+    Used for checking availability and double-bookings.
+    """
+    # Get start and end of the day
+    start_of_day = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_of_day = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    query = select(orm_models.Appointment).where(
+        orm_models.Appointment.date >= start_of_day,
+        orm_models.Appointment.date <= end_of_day,
+        orm_models.Appointment.status.notin_(
+            [orm_models.AppointmentStatus.CANCELLED]
+        )
+    )
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
+async def get_appointments_by_date_and_slot(
+    db: AsyncSession, target_date: datetime, time_slot: str
+):
+    """
+    Fetches appointments for a specific date and time slot.
+    Used for double-booking prevention.
+    """
+    start_of_day = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_of_day = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    query = select(orm_models.Appointment).where(
+        orm_models.Appointment.date >= start_of_day,
+        orm_models.Appointment.date <= end_of_day,
+        orm_models.Appointment.time_slot == time_slot,
+        orm_models.Appointment.status.notin_(
+            [orm_models.AppointmentStatus.CANCELLED]
+        )
+    )
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
+async def get_all_appointments(
+    db: AsyncSession,
+    skip: int = 0,
+    limit: int = 100,
+    status: str = None,
+    from_date: datetime = None,
+    to_date: datetime = None
+):
+    """
+    Fetches all appointments with optional filtering and pagination.
+    Used for admin dashboard.
+    """
+    query = select(orm_models.Appointment)
+
+    # Apply filters
+    if status:
+        query = query.where(orm_models.Appointment.status == status)
+    if from_date:
+        query = query.where(orm_models.Appointment.date >= from_date)
+    if to_date:
+        query = query.where(orm_models.Appointment.date <= to_date)
+
+    # Order by date descending (newest first)
+    query = query.order_by(orm_models.Appointment.date.desc())
+    query = query.offset(skip).limit(limit)
+
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
+async def count_appointments(
+    db: AsyncSession,
+    status: str = None,
+    from_date: datetime = None,
+    to_date: datetime = None
+):
+    """
+    Counts appointments with optional filtering.
+    """
+    from sqlalchemy import func
+
+    query = select(func.count(orm_models.Appointment.id))
+
+    if status:
+        query = query.where(orm_models.Appointment.status == status)
+    if from_date:
+        query = query.where(orm_models.Appointment.date >= from_date)
+    if to_date:
+        query = query.where(orm_models.Appointment.date <= to_date)
+
+    result = await db.execute(query)
+    return result.scalar()
+
+
+async def update_appointment_status(
+    db: AsyncSession,
+    appointment: orm_models.Appointment,
+    new_status: str,
+    admin_notes: str = None
+):
+    """Updates an appointment's status."""
+    appointment.status = new_status
+    if admin_notes:
+        appointment.admin_notes = admin_notes
+    appointment.updated_at = datetime.utcnow()
+
+    await db.commit()
+    await db.refresh(appointment)
+    return appointment
+
+
+async def get_appointments_by_email(db: AsyncSession, email: str, skip: int = 0, limit: int = 100):
+    """Fetches all appointments for a specific customer email."""
+    query = (
+        select(orm_models.Appointment)
+        .where(orm_models.Appointment.email == email)
+        .order_by(orm_models.Appointment.date.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    result = await db.execute(query)
+    return result.scalars().all()

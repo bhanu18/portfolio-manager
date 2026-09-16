@@ -392,7 +392,7 @@ export function PortfolioPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const groups = user?.groups ?? [];
+  const groups = useMemo(() => user?.groups ?? [], [user]);
 
   // Selected asset driven by URL ?asset=SYMBOL for shareability.
   const selectedSymbol = searchParams.get("asset");

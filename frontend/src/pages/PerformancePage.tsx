@@ -95,8 +95,8 @@ export function PerformancePage() {
   // Clean up timers on unmount
   useEffect(() => {
     return () => {
-      elapsedTimerRef.current && clearInterval(elapsedTimerRef.current);
-      statusTimerRef.current && clearInterval(statusTimerRef.current);
+      if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
+      if (statusTimerRef.current) clearInterval(statusTimerRef.current);
     };
   }, []);
 
@@ -119,8 +119,8 @@ export function PerformancePage() {
   }
 
   function stopTimers() {
-    elapsedTimerRef.current && clearInterval(elapsedTimerRef.current);
-    statusTimerRef.current && clearInterval(statusTimerRef.current);
+    if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
+    if (statusTimerRef.current) clearInterval(statusTimerRef.current);
     elapsedTimerRef.current = null;
     statusTimerRef.current = null;
   }

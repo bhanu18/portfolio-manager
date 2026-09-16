@@ -10,3 +10,6 @@ pluggy==1.6.0
 # Lint / type check
 ruff==0.16.7
 mypy==2.3.1
+
+# Dev tooling
+pre-commit==4.3.0

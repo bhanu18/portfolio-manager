@@ -1,0 +1,1 @@
+asynchronous API for tracking a personal portfolio of financial assets. Built with FastAPI and SQLAlchemy, this API provides endpoints for managing assets and trades, fetches real-time price data, and offers dynamic reporting.

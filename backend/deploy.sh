@@ -4,6 +4,7 @@
 # This script deploys your FastAPI application to Google Cloud Run
 
 set -e  # Exit on error
+cd "$(dirname "$0")"  # always build from backend/
 
 # Colors for output
 RED='\033[0;31m'

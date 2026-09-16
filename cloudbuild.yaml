@@ -1,7 +1,7 @@
 steps:
   # 1. Build the container image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/portfolio-tracker:$COMMIT_SHA', '.']
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/portfolio-tracker:$COMMIT_SHA', 'backend']
 
   # 2. Push the image to Container Registry
   - name: 'gcr.io/cloud-builders/docker'

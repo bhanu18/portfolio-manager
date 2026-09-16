@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
+from typing import Any
 
 import yfinance as yf
 from fastapi import APIRouter, Depends, HTTPException
@@ -156,7 +157,7 @@ async def get_portfolio_performance(
     report_date = now.strftime("%Y-%m-%d")
 
     # FX rate cache to avoid redundant API calls
-    fx_cache = {}
+    fx_cache: dict[str, dict[str, Any]] = {}
     fx_warnings = []
 
     # Helper function to get historical FX rate
@@ -265,7 +266,9 @@ async def get_portfolio_performance(
     assets_dict = {asset.id: asset for asset in all_assets}
 
     # Group trades by asset to calculate holdings
-    holdings_by_asset = defaultdict(lambda: {"buys": [], "sells": [], "quantity": 0})
+    holdings_by_asset: defaultdict[int, dict[str, Any]] = defaultdict(
+        lambda: {"buys": [], "sells": [], "quantity": 0}
+    )
 
     for trade in all_trades:
         if trade.trade_type == "buy":
@@ -291,14 +294,16 @@ async def get_portfolio_performance(
 
     # Analyze each holding
     holdings_analysis = []
-    total_cost_basis_base = 0
-    total_current_value_base = 0
+    total_cost_basis_base = 0.0
+    total_current_value_base = 0.0
     total_dividends_base = 0.0  # TODO: dividends are not calculated yet (always 0)
 
-    by_currency = defaultdict(
+    by_currency: defaultdict[str, dict[str, float]] = defaultdict(
         lambda: {"value_base": 0, "cost_basis_base": 0, "local_gain": 0, "fx_gain": 0}
     )
-    by_asset_type = defaultdict(lambda: {"value_base": 0, "cost_basis_base": 0})
+    by_asset_type: defaultdict[str, dict[str, float]] = defaultdict(
+        lambda: {"value_base": 0, "cost_basis_base": 0}
+    )
 
     for asset_id, holding_data in holdings_by_asset.items():
         if holding_data["quantity"] <= 0:

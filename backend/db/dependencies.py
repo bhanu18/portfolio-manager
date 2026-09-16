@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
 from db import service
-from db.orm_models import Group, GroupMemberRole, UserRole
+from db.orm_models import Group, GroupMemberRole, User, UserRole
 from db.session import AsyncSessionLocal
 from models import users as user_schema
 from models.token import TokenData
@@ -38,16 +38,16 @@ async def get_current_user(
         # Decode the JWT
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         # The 'sub' (subject) of our token is the user's email
-        email: str = payload.get("sub")
-        if email is None:
+        email = payload.get("sub")
+        if not isinstance(email, str):
             raise credentials_exception
-        token_data = TokenData(email=email)
+        TokenData(email=email)  # validate token payload shape
     except JWTError as e:
         # This catches errors like expired tokens or invalid signatures
         raise credentials_exception from e
 
     # Fetch the user from the database
-    user = await service.get_user_by_email(db, email=token_data.email)
+    user = await service.get_user_by_email(db, email=email)
     if user is None:
         raise credentials_exception
 
@@ -107,7 +107,7 @@ async def get_group_from_path(group_id: int, db: AsyncSession = Depends(get_db))
 
 
 async def get_current_group_admin(
-    current_user: user_schema.User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     group: Group = Depends(get_group_from_path),
 ) -> Group:
     """

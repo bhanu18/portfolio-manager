@@ -39,6 +39,8 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "f
 # ---------------------------------------------------------------- mypy
 [tool.mypy]
 python_version = "3.12"
+files = ["main.py", "core", "db", "models", "routers", "service"]
+explicit_package_bases = true
 plugins = ["pydantic.mypy"]
 ignore_missing_imports = true
 warn_unused_ignores = true
@@ -46,6 +48,12 @@ warn_redundant_casts = true
 no_implicit_optional = true
 check_untyped_defs = true
 exclude = ["^venv/", "^alembic/versions/"]
+
+# Legacy SQLAlchemy 1.x-style models (Column(...) without Mapped[] annotations) are
+# opaque to mypy. Migrating db/orm_models.py to `Mapped[...]` removes the need for this.
+[[tool.mypy.overrides]]
+module = ["db.orm_models", "db.service"]
+disable_error_code = ["valid-type", "misc", "var-annotated", "assignment", "arg-type"]
 
 # ---------------------------------------------------------------- pytest
 [tool.pytest.ini_options]

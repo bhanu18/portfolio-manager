@@ -130,7 +130,8 @@ async def update_all_asset_prices(db: AsyncSession = Depends(get_db)):
     updated_symbols = []
     skipped_symbols = []
     now = datetime.utcnow()
-    db.expire_on_commit = False
+    # Keep loaded assets usable after each commit (no lazy reload in async context)
+    db.sync_session.expire_on_commit = False
     db_assets = await service.get_all_assets(db)
 
     for asset in db_assets:

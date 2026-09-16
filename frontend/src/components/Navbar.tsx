@@ -39,11 +39,7 @@ export function Navbar() {
               {isAdmin && <span className="badge badge--admin">admin</span>}
             </span>
           )}
-          <button
-            type="button"
-            className="btn btn--ghost btn--sm"
-            onClick={handleLogout}
-          >
+          <button type="button" className="btn btn--ghost btn--sm" onClick={handleLogout}>
             Log out
           </button>
         </div>

@@ -36,11 +36,7 @@ const COMMON_CURRENCIES = ["USD", "EUR", "GBP", "THB", "JPY", "SGD"];
 type SortKey = keyof HoldingAnalysis;
 type SortDir = "asc" | "desc";
 
-function sortHoldings(
-  holdings: HoldingAnalysis[],
-  key: SortKey,
-  dir: SortDir,
-): HoldingAnalysis[] {
+function sortHoldings(holdings: HoldingAnalysis[], key: SortKey, dir: SortDir): HoldingAnalysis[] {
   return [...holdings].sort((a, b) => {
     const av = a[key];
     const bv = b[key];
@@ -107,13 +103,9 @@ export function PerformancePage() {
     setElapsed(0);
     setStatusIndex(0);
 
-    elapsedTimerRef.current = setInterval(
-      () => setElapsed((s) => s + 1),
-      1000,
-    );
+    elapsedTimerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
     statusTimerRef.current = setInterval(
-      () =>
-        setStatusIndex((i) => (i + 1) % STATUS_MESSAGES.length),
+      () => setStatusIndex((i) => (i + 1) % STATUS_MESSAGES.length),
       4000,
     );
   }
@@ -270,19 +262,15 @@ export function PerformancePage() {
     <div className="card" style={{ maxWidth: 520 }}>
       <h2 className="card__title">Portfolio Performance Report</h2>
       <p className="muted small" style={{ marginBottom: "1.25rem" }}>
-        Fetches live prices + historical FX rates. This may take 10–60+ seconds
-        depending on the size of your portfolio.
+        Fetches live prices + historical FX rates. This may take 10–60+ seconds depending on the
+        size of your portfolio.
       </p>
 
       {/* Cached result banner */}
       {report && cachedAt && (
         <div className="alert alert--info" style={{ marginBottom: "1rem" }}>
           Showing report from {cachedAt}.{" "}
-          <button
-            type="button"
-            className="link-button"
-            onClick={() => setPhase("results")}
-          >
+          <button type="button" className="link-button" onClick={() => setPhase("results")}>
             View it
           </button>
         </div>
@@ -306,7 +294,9 @@ export function PerformancePage() {
           onChange={(e) => setBaseCurrency(e.target.value)}
         >
           {COMMON_CURRENCIES.map((c) => (
-            <option key={c} value={c}>{c}</option>
+            <option key={c} value={c}>
+              {c}
+            </option>
           ))}
           <option value="__custom__">Other…</option>
         </select>
@@ -345,11 +335,7 @@ export function PerformancePage() {
         </span>
       </div>
 
-      <button
-        type="button"
-        className="btn btn--primary btn--block"
-        onClick={handleRun}
-      >
+      <button type="button" className="btn btn--primary btn--block" onClick={handleRun}>
         Run Report
       </button>
     </div>
@@ -414,7 +400,10 @@ function PerformanceResults({
 
       {/* Cached result banner */}
       {cachedAt && (
-        <div className="alert alert--info" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div
+          className="alert alert--info"
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+        >
           <span>Showing report from {cachedAt}.</span>
           <button type="button" className="btn btn--ghost btn--sm" onClick={onRunAgain}>
             Run Again
@@ -424,7 +413,15 @@ function PerformanceResults({
 
       {/* Summary card */}
       <div className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            flexWrap: "wrap",
+            gap: "1rem",
+          }}
+        >
           <div>
             <h2 className="card__title">
               Summary — {report.base_currency}
@@ -449,13 +446,19 @@ function PerformanceResults({
             </div>
             <div className="detail-list__row">
               <dt>Current value</dt>
-              <dd><strong>{formatNumber(s.total_current_value)}</strong></dd>
+              <dd>
+                <strong>{formatNumber(s.total_current_value)}</strong>
+              </dd>
             </div>
             <div className="detail-list__row">
               <dt>Unrealized P&amp;L</dt>
               <dd className={positive ? "pnl pnl--positive" : "pnl pnl--negative"}>
-                {positive ? "+" : ""}{formatNumber(gainLoss)}{" "}
-                <span className="small">({positive ? "+" : ""}{gainLossPct.toFixed(2)}%)</span>
+                {positive ? "+" : ""}
+                {formatNumber(gainLoss)}{" "}
+                <span className="small">
+                  ({positive ? "+" : ""}
+                  {gainLossPct.toFixed(2)}%)
+                </span>
               </dd>
             </div>
             <div className="detail-list__row">
@@ -476,7 +479,8 @@ function PerformanceResults({
             <div className="detail-list__row">
               <dt>Alpha</dt>
               <dd className={alphaPositive ? "pnl pnl--positive" : "pnl pnl--negative"}>
-                {alphaPositive ? "+" : ""}{(alpha * 100).toFixed(2)}%
+                {alphaPositive ? "+" : ""}
+                {(alpha * 100).toFixed(2)}%
               </dd>
             </div>
             <div className="detail-list__row">
@@ -510,14 +514,19 @@ function PerformanceResults({
               <tbody>
                 {report.top_performers.length === 0 ? (
                   <tr>
-                    <td colSpan={2} className="muted">No data</td>
+                    <td colSpan={2} className="muted">
+                      No data
+                    </td>
                   </tr>
                 ) : (
                   report.top_performers.map((p) => (
                     <tr key={p.ticker}>
                       <td>{p.ticker}</td>
-                      <td className={`num pnl ${p.total_return_pct >= 0 ? "pnl--positive" : "pnl--negative"}`}>
-                        {p.total_return_pct >= 0 ? "+" : ""}{p.total_return_pct.toFixed(2)}%
+                      <td
+                        className={`num pnl ${p.total_return_pct >= 0 ? "pnl--positive" : "pnl--negative"}`}
+                      >
+                        {p.total_return_pct >= 0 ? "+" : ""}
+                        {p.total_return_pct.toFixed(2)}%
                       </td>
                     </tr>
                   ))
@@ -540,14 +549,19 @@ function PerformanceResults({
               <tbody>
                 {report.bottom_performers.length === 0 ? (
                   <tr>
-                    <td colSpan={2} className="muted">No data</td>
+                    <td colSpan={2} className="muted">
+                      No data
+                    </td>
                   </tr>
                 ) : (
                   report.bottom_performers.map((p) => (
                     <tr key={p.ticker}>
                       <td>{p.ticker}</td>
-                      <td className={`num pnl ${p.total_return_pct >= 0 ? "pnl--positive" : "pnl--negative"}`}>
-                        {p.total_return_pct >= 0 ? "+" : ""}{p.total_return_pct.toFixed(2)}%
+                      <td
+                        className={`num pnl ${p.total_return_pct >= 0 ? "pnl--positive" : "pnl--negative"}`}
+                      >
+                        {p.total_return_pct >= 0 ? "+" : ""}
+                        {p.total_return_pct.toFixed(2)}%
                       </td>
                     </tr>
                   ))
@@ -579,16 +593,36 @@ function PerformanceResults({
               <tr>
                 <th {...thProps("ticker")}>Ticker{sortIndicator("ticker")}</th>
                 <th {...thProps("asset_name")}>Name{sortIndicator("asset_name")}</th>
-                <th className="num" {...thProps("quantity")}>Qty{sortIndicator("quantity")}</th>
-                <th className="num" {...thProps("cost_basis_base")}>Cost Basis{sortIndicator("cost_basis_base")}</th>
-                <th className="num" {...thProps("current_value_base")}>Curr. Value{sortIndicator("current_value_base")}</th>
-                <th className="num" {...thProps("unrealized_gain_loss_base")}>P&amp;L{sortIndicator("unrealized_gain_loss_base")}</th>
-                <th className="num" {...thProps("total_return_pct")}>Total Ret%{sortIndicator("total_return_pct")}</th>
-                <th className="num" {...thProps("local_return_pct")}>Local Ret%{sortIndicator("local_return_pct")}</th>
-                <th className="num" {...thProps("fx_return_pct")}>FX Ret%{sortIndicator("fx_return_pct")}</th>
-                <th className="num" {...thProps("weight_pct")}>Weight%{sortIndicator("weight_pct")}</th>
-                <th className="num" {...thProps("holding_period_days")}>Days Held{sortIndicator("holding_period_days")}</th>
-                <th className="num" {...thProps("annualized_return")}>Ann. Ret%{sortIndicator("annualized_return")}</th>
+                <th className="num" {...thProps("quantity")}>
+                  Qty{sortIndicator("quantity")}
+                </th>
+                <th className="num" {...thProps("cost_basis_base")}>
+                  Cost Basis{sortIndicator("cost_basis_base")}
+                </th>
+                <th className="num" {...thProps("current_value_base")}>
+                  Curr. Value{sortIndicator("current_value_base")}
+                </th>
+                <th className="num" {...thProps("unrealized_gain_loss_base")}>
+                  P&amp;L{sortIndicator("unrealized_gain_loss_base")}
+                </th>
+                <th className="num" {...thProps("total_return_pct")}>
+                  Total Ret%{sortIndicator("total_return_pct")}
+                </th>
+                <th className="num" {...thProps("local_return_pct")}>
+                  Local Ret%{sortIndicator("local_return_pct")}
+                </th>
+                <th className="num" {...thProps("fx_return_pct")}>
+                  FX Ret%{sortIndicator("fx_return_pct")}
+                </th>
+                <th className="num" {...thProps("weight_pct")}>
+                  Weight%{sortIndicator("weight_pct")}
+                </th>
+                <th className="num" {...thProps("holding_period_days")}>
+                  Days Held{sortIndicator("holding_period_days")}
+                </th>
+                <th className="num" {...thProps("annualized_return")}>
+                  Ann. Ret%{sortIndicator("annualized_return")}
+                </th>
                 <th>LT?</th>
                 <th>Risk Score</th>
               </tr>
@@ -598,18 +632,27 @@ function PerformanceResults({
                 const gl = h.unrealized_gain_loss_base;
                 return (
                   <tr key={h.ticker}>
-                    <td><strong>{h.ticker}</strong></td>
-                    <td className="muted" style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <td>
+                      <strong>{h.ticker}</strong>
+                    </td>
+                    <td
+                      className="muted"
+                      style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}
+                    >
                       {h.asset_name}
                     </td>
                     <td className="num">{formatNumber(h.quantity)}</td>
                     <td className="num">{formatNumber(h.cost_basis_base)}</td>
                     <td className="num">{formatNumber(h.current_value_base)}</td>
                     <td className={`num pnl ${gl >= 0 ? "pnl--positive" : "pnl--negative"}`}>
-                      {gl >= 0 ? "+" : ""}{formatNumber(gl)}
+                      {gl >= 0 ? "+" : ""}
+                      {formatNumber(gl)}
                     </td>
-                    <td className={`num pnl ${h.total_return_pct >= 0 ? "pnl--positive" : "pnl--negative"}`}>
-                      {h.total_return_pct >= 0 ? "+" : ""}{h.total_return_pct.toFixed(2)}%
+                    <td
+                      className={`num pnl ${h.total_return_pct >= 0 ? "pnl--positive" : "pnl--negative"}`}
+                    >
+                      {h.total_return_pct >= 0 ? "+" : ""}
+                      {h.total_return_pct.toFixed(2)}%
                     </td>
                     <td className="num">{h.local_return_pct.toFixed(2)}%</td>
                     <td className="num">{h.fx_return_pct.toFixed(2)}%</td>
@@ -654,14 +697,19 @@ function PerformanceResults({
               <tbody>
                 {Object.entries(report.by_currency).map(([cur, b]) => (
                   <tr key={cur}>
-                    <td><strong>{cur}</strong></td>
+                    <td>
+                      <strong>{cur}</strong>
+                    </td>
                     <td className="num">{formatNumber(b.value_base)}</td>
                     <td className="num">{formatNumber(b.cost_basis_base)}</td>
                     <td className="num">{b.weight_pct.toFixed(2)}%</td>
                     <td className="num">{b.local_return_pct.toFixed(2)}%</td>
                     <td className="num">{b.fx_return_pct.toFixed(2)}%</td>
-                    <td className={`num pnl ${b.total_return_pct >= 0 ? "pnl--positive" : "pnl--negative"}`}>
-                      {b.total_return_pct >= 0 ? "+" : ""}{b.total_return_pct.toFixed(2)}%
+                    <td
+                      className={`num pnl ${b.total_return_pct >= 0 ? "pnl--positive" : "pnl--negative"}`}
+                    >
+                      {b.total_return_pct >= 0 ? "+" : ""}
+                      {b.total_return_pct.toFixed(2)}%
                     </td>
                   </tr>
                 ))}
@@ -688,7 +736,9 @@ function PerformanceResults({
               <tbody>
                 {Object.entries(report.by_asset_type).map(([type, b]) => (
                   <tr key={type}>
-                    <td><strong>{type}</strong></td>
+                    <td>
+                      <strong>{type}</strong>
+                    </td>
                     <td className="num">{formatNumber(b.value_base)}</td>
                     <td className="num">{formatNumber(b.cost_basis_base)}</td>
                     <td className="num">{b.weight_pct.toFixed(2)}%</td>
@@ -709,15 +759,13 @@ function PerformanceResults({
             onClick={onToggleFxWarnings}
             style={{ fontSize: "1rem", fontWeight: 600, color: "var(--color-warn)" }}
           >
-            ⚠️ FX Warnings ({report.fx_warnings.length}){" "}
-            {showFxWarnings ? "▲ Hide" : "▼ Show"}
+            ⚠️ FX Warnings ({report.fx_warnings.length}) {showFxWarnings ? "▲ Hide" : "▼ Show"}
           </button>
           {showFxWarnings && (
             <div style={{ marginTop: "0.75rem" }}>
               <p className="muted small" style={{ marginBottom: "0.5rem" }}>
-                Historical FX rates fell back to current-day rates for the
-                tickers below. Cost basis calculations may be slightly
-                inaccurate.
+                Historical FX rates fell back to current-day rates for the tickers below. Cost basis
+                calculations may be slightly inaccurate.
               </p>
               <ul style={{ margin: 0, padding: "0 0 0 1.25rem", fontSize: "0.9rem" }}>
                 {report.fx_warnings.map((w, i) => (

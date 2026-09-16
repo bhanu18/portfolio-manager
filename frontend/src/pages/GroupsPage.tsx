@@ -22,7 +22,12 @@ export function GroupsPage() {
   const queryClient = useQueryClient();
 
   // Fetch current user to get the groups list.
-  const { data: user, isLoading, isError, error } = useQuery({
+  const {
+    data: user,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ["me"],
     queryFn: getMe,
   });
@@ -162,10 +167,7 @@ export function GroupsPage() {
                     <td className="muted small">{g.id}</td>
                     <td>
                       <div className="row-actions">
-                        <Link
-                          to={`/groups/${g.id}`}
-                          className="btn btn--ghost btn--sm"
-                        >
+                        <Link to={`/groups/${g.id}`} className="btn btn--ghost btn--sm">
                           View
                         </Link>
                         {isAdmin && (

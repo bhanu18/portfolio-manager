@@ -35,8 +35,7 @@ function normalizeGroups(raw: RawUser): GroupAssociation[] {
     if (!row || typeof row !== "object") return [];
     const r = row as Record<string, unknown>;
 
-    const role: GroupMemberRoleValue =
-      r.role === "group_admin" ? "group_admin" : "member";
+    const role: GroupMemberRoleValue = r.role === "group_admin" ? "group_admin" : "member";
 
     // 1. Association columns: { group_id, group_name, role } — actual backend shape
     if (r.group_id != null) {
@@ -97,19 +96,14 @@ export async function register(payload: RegisterPayload): Promise<User> {
  * IMPORTANT: this endpoint is form-encoded (NOT JSON) and expects
  * `username` (= email) and `password` fields.
  */
-export async function login(
-  email: string,
-  password: string,
-): Promise<LoginResponse> {
+export async function login(email: string, password: string): Promise<LoginResponse> {
   const form = new URLSearchParams();
   form.append("username", email);
   form.append("password", password);
 
-  const { data } = await apiClient.post<LoginResponse>(
-    "/login/access-token",
-    form,
-    { headers: { "Content-Type": "application/x-www-form-urlencoded" } },
-  );
+  const { data } = await apiClient.post<LoginResponse>("/login/access-token", form, {
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
   return data;
 }
 
@@ -129,10 +123,7 @@ export async function listUsers(): Promise<User[]> {
 export async function changePassword(
   payload: ChangePasswordPayload,
 ): Promise<{ message?: string }> {
-  const { data } = await apiClient.post<{ message?: string }>(
-    "/change-password",
-    payload,
-  );
+  const { data } = await apiClient.post<{ message?: string }>("/change-password", payload);
   return data;
 }
 
@@ -140,20 +131,12 @@ export async function changePassword(
 export async function forgotPassword(
   payload: ForgotPasswordPayload,
 ): Promise<{ message?: string }> {
-  const { data } = await apiClient.post<{ message?: string }>(
-    "/forgot-password",
-    payload,
-  );
+  const { data } = await apiClient.post<{ message?: string }>("/forgot-password", payload);
   return data;
 }
 
 /** POST /reset-password — body { token, new_password }. */
-export async function resetPassword(
-  payload: ResetPasswordPayload,
-): Promise<{ message?: string }> {
-  const { data } = await apiClient.post<{ message?: string }>(
-    "/reset-password",
-    payload,
-  );
+export async function resetPassword(payload: ResetPasswordPayload): Promise<{ message?: string }> {
+  const { data } = await apiClient.post<{ message?: string }>("/reset-password", payload);
   return data;
 }

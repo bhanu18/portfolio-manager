@@ -28,20 +28,10 @@ export function ConfirmDialog({
       onClose={onCancel}
       footer={
         <>
-          <button
-            type="button"
-            className="btn btn--ghost"
-            onClick={onCancel}
-            disabled={busy}
-          >
+          <button type="button" className="btn btn--ghost" onClick={onCancel} disabled={busy}>
             {cancelLabel}
           </button>
-          <button
-            type="button"
-            className="btn btn--danger"
-            onClick={onConfirm}
-            disabled={busy}
-          >
+          <button type="button" className="btn btn--danger" onClick={onConfirm} disabled={busy}>
             {busy ? "Working…" : confirmLabel}
           </button>
         </>

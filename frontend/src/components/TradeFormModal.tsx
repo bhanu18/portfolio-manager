@@ -154,20 +154,10 @@ export function TradeFormModal({
       onClose={onCancel}
       footer={
         <>
-          <button
-            type="button"
-            className="btn btn--ghost"
-            onClick={onCancel}
-            disabled={busy}
-          >
+          <button type="button" className="btn btn--ghost" onClick={onCancel} disabled={busy}>
             Cancel
           </button>
-          <button
-            type="submit"
-            form="trade-form"
-            className="btn btn--primary"
-            disabled={busy}
-          >
+          <button type="submit" form="trade-form" className="btn btn--primary" disabled={busy}>
             {busy ? "Saving…" : isEdit ? "Save changes" : "Create trade"}
           </button>
         </>
@@ -213,24 +203,17 @@ export function TradeFormModal({
                   {verifying ? "Checking…" : "Verify"}
                 </button>
               </div>
-              {errors.symbol && (
-                <span className="field__error">{errors.symbol}</span>
-              )}
+              {errors.symbol && <span className="field__error">{errors.symbol}</span>}
               {verifiedName && (
-                <span className="field__hint field__hint--ok">
-                  ✓ {verifiedName}
-                </span>
+                <span className="field__hint field__hint--ok">✓ {verifiedName}</span>
               )}
               {verifiedName && holdingsQty !== null && (
                 <span className="field__hint muted">
-                  Current holdings: <strong>{formatNumber(holdingsQty)}</strong> units (net across all groups)
+                  Current holdings: <strong>{formatNumber(holdingsQty)}</strong> units (net across
+                  all groups)
                 </span>
               )}
-              {verifyError && (
-                <span className="field__hint field__hint--warn">
-                  {verifyError}
-                </span>
-              )}
+              {verifyError && <span className="field__hint field__hint--warn">{verifyError}</span>}
             </>
           )}
         </div>
@@ -266,9 +249,7 @@ export function TradeFormModal({
               onChange={(e) => setTradeDate(e.target.value)}
               aria-invalid={Boolean(errors.tradeDate)}
             />
-            {errors.tradeDate && (
-              <span className="field__error">{errors.tradeDate}</span>
-            )}
+            {errors.tradeDate && <span className="field__error">{errors.tradeDate}</span>}
           </div>
         </div>
 
@@ -287,9 +268,7 @@ export function TradeFormModal({
               onChange={(e) => setQuantity(e.target.value)}
               aria-invalid={Boolean(errors.quantity)}
             />
-            {errors.quantity && (
-              <span className="field__error">{errors.quantity}</span>
-            )}
+            {errors.quantity && <span className="field__error">{errors.quantity}</span>}
           </div>
 
           <div className="field">
@@ -306,9 +285,7 @@ export function TradeFormModal({
               onChange={(e) => setPricePerUnit(e.target.value)}
               aria-invalid={Boolean(errors.pricePerUnit)}
             />
-            {errors.pricePerUnit && (
-              <span className="field__error">{errors.pricePerUnit}</span>
-            )}
+            {errors.pricePerUnit && <span className="field__error">{errors.pricePerUnit}</span>}
           </div>
         </div>
 
@@ -326,9 +303,7 @@ export function TradeFormModal({
               onChange={(e) => setCurrency(e.target.value)}
               aria-invalid={Boolean(errors.currency)}
             />
-            {errors.currency && (
-              <span className="field__error">{errors.currency}</span>
-            )}
+            {errors.currency && <span className="field__error">{errors.currency}</span>}
           </div>
 
           <div className="field">
@@ -339,9 +314,7 @@ export function TradeFormModal({
               id="trade-group"
               className="field__input"
               value={groupId}
-              onChange={(e) =>
-                setGroupId(e.target.value === "" ? "" : Number(e.target.value))
-              }
+              onChange={(e) => setGroupId(e.target.value === "" ? "" : Number(e.target.value))}
               aria-invalid={Boolean(errors.groupId)}
             >
               <option value="">Select a group…</option>
@@ -351,9 +324,7 @@ export function TradeFormModal({
                 </option>
               ))}
             </select>
-            {errors.groupId && (
-              <span className="field__error">{errors.groupId}</span>
-            )}
+            {errors.groupId && <span className="field__error">{errors.groupId}</span>}
           </div>
         </div>
       </form>

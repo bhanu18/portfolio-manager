@@ -39,8 +39,8 @@ export function ForgotPasswordPage() {
         {done ? (
           <>
             <div className="alert alert--success" role="status">
-              If an account exists for that email, we've sent a reset link.
-              Check your inbox and follow the link to choose a new password.
+              If an account exists for that email, we've sent a reset link. Check your inbox and
+              follow the link to choose a new password.
             </div>
             <div className="auth-card__links">
               <Link to="/reset-password">I have a reset token</Link>
@@ -49,9 +49,7 @@ export function ForgotPasswordPage() {
           </>
         ) : (
           <>
-            <p className="auth-card__subtitle">
-              Enter your email and we'll send a reset link.
-            </p>
+            <p className="auth-card__subtitle">Enter your email and we'll send a reset link.</p>
 
             {formError && (
               <div className="alert alert--error" role="alert">
@@ -73,16 +71,10 @@ export function ForgotPasswordPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   aria-invalid={Boolean(emailError)}
                 />
-                {emailError && (
-                  <span className="field__error">{emailError}</span>
-                )}
+                {emailError && <span className="field__error">{emailError}</span>}
               </div>
 
-              <button
-                type="submit"
-                className="btn btn--primary btn--block"
-                disabled={submitting}
-              >
+              <button type="submit" className="btn btn--primary btn--block" disabled={submitting}>
                 {submitting ? "Sending…" : "Send reset link"}
               </button>
             </form>

@@ -31,7 +31,8 @@ export function ValuationPage() {
   const [results, setResults] = useState<ValuationResult[]>([]);
   const [runError, setRunError] = useState<string | null>(null);
 
-  const effectiveCurrency = currency === "__custom__" ? customCurrency.trim().toUpperCase() : currency;
+  const effectiveCurrency =
+    currency === "__custom__" ? customCurrency.trim().toUpperCase() : currency;
 
   function validate(): boolean {
     let ok = true;
@@ -84,7 +85,8 @@ export function ValuationPage() {
       <div className="card">
         <h2 className="card__title">Asset Valuation</h2>
         <p className="muted small" style={{ marginBottom: "1.25rem" }}>
-          Look up the current value and P&amp;L of any asset you hold, converted to your chosen currency.
+          Look up the current value and P&amp;L of any asset you hold, converted to your chosen
+          currency.
         </p>
 
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-end" }}>
@@ -117,7 +119,9 @@ export function ValuationPage() {
               onChange={(e) => setCurrency(e.target.value)}
             >
               {COMMON_CURRENCIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c} value={c}>
+                  {c}
+                </option>
               ))}
               <option value="__custom__">Other…</option>
             </select>
@@ -126,7 +130,9 @@ export function ValuationPage() {
           {/* Free-text currency fallback */}
           {currency === "__custom__" && (
             <div className="field" style={{ flex: "1 1 120px", marginBottom: 0 }}>
-              <label className="field__label" htmlFor="val-currency-custom">Currency code</label>
+              <label className="field__label" htmlFor="val-currency-custom">
+                Currency code
+              </label>
               <input
                 id="val-currency-custom"
                 className="field__input"
@@ -225,7 +231,9 @@ function ValuationResultCard({
             </div>
             <div className="detail-list__row">
               <dt>In {data.reporting_currency}</dt>
-              <dd><strong>{formatNumber(data.valuation.current_value_in_target_currency)}</strong></dd>
+              <dd>
+                <strong>{formatNumber(data.valuation.current_value_in_target_currency)}</strong>
+              </dd>
             </div>
           </dl>
         </div>

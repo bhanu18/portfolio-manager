@@ -57,10 +57,8 @@ export function AssetFormModal({
     }
   }, [open, asset]);
 
-  const update = <K extends keyof AssetFormValues>(
-    key: K,
-    value: AssetFormValues[K],
-  ) => setValues((v) => ({ ...v, [key]: value }));
+  const update = <K extends keyof AssetFormValues>(key: K, value: AssetFormValues[K]) =>
+    setValues((v) => ({ ...v, [key]: value }));
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -87,20 +85,10 @@ export function AssetFormModal({
       onClose={onCancel}
       footer={
         <>
-          <button
-            type="button"
-            className="btn btn--ghost"
-            onClick={onCancel}
-            disabled={busy}
-          >
+          <button type="button" className="btn btn--ghost" onClick={onCancel} disabled={busy}>
             Cancel
           </button>
-          <button
-            type="submit"
-            form="asset-form"
-            className="btn btn--primary"
-            disabled={busy}
-          >
+          <button type="submit" form="asset-form" className="btn btn--primary" disabled={busy}>
             {busy ? "Saving…" : isEdit ? "Save changes" : "Create asset"}
           </button>
         </>
@@ -120,9 +108,7 @@ export function AssetFormModal({
             placeholder="AAPL"
             aria-invalid={Boolean(errors.symbol)}
           />
-          {errors.symbol && (
-            <span className="field__error">{errors.symbol}</span>
-          )}
+          {errors.symbol && <span className="field__error">{errors.symbol}</span>}
         </div>
 
         <div className="field">
@@ -154,9 +140,7 @@ export function AssetFormModal({
             placeholder="NASDAQ"
             aria-invalid={Boolean(errors.market)}
           />
-          {errors.market && (
-            <span className="field__error">{errors.market}</span>
-          )}
+          {errors.market && <span className="field__error">{errors.market}</span>}
         </div>
 
         <div className="field">
@@ -179,8 +163,7 @@ export function AssetFormModal({
 
         {!isEdit && (
           <p className="muted small">
-            The server fetches a live price automatically when the asset is
-            created.
+            The server fetches a live price automatically when the asset is created.
           </p>
         )}
       </form>

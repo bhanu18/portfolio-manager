@@ -12,8 +12,7 @@ export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const redirectTo =
-    (location.state as LocationState | null)?.from?.pathname ?? "/assets";
+  const redirectTo = (location.state as LocationState | null)?.from?.pathname ?? "/assets";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -70,9 +69,7 @@ export function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               aria-invalid={Boolean(fieldErrors.email)}
             />
-            {fieldErrors.email && (
-              <span className="field__error">{fieldErrors.email}</span>
-            )}
+            {fieldErrors.email && <span className="field__error">{fieldErrors.email}</span>}
           </div>
 
           <div className="field">
@@ -88,16 +85,10 @@ export function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               aria-invalid={Boolean(fieldErrors.password)}
             />
-            {fieldErrors.password && (
-              <span className="field__error">{fieldErrors.password}</span>
-            )}
+            {fieldErrors.password && <span className="field__error">{fieldErrors.password}</span>}
           </div>
 
-          <button
-            type="submit"
-            className="btn btn--primary btn--block"
-            disabled={submitting}
-          >
+          <button type="submit" className="btn btn--primary btn--block" disabled={submitting}>
             {submitting ? "Signing in…" : "Sign in"}
           </button>
         </form>

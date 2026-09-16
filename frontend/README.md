@@ -28,19 +28,19 @@ npm run dev
 
 ### Available scripts
 
-| Script              | Description                                       |
-| ------------------- | ------------------------------------------------- |
-| `npm run dev`       | Start the Vite dev server on port **5173**        |
-| `npm run build`     | Type-check (strict) and build for production      |
-| `npm run typecheck` | Run the TypeScript compiler with no emit          |
-| `npm run preview`   | Preview the production build locally              |
+| Script              | Description                                  |
+| ------------------- | -------------------------------------------- |
+| `npm run dev`       | Start the Vite dev server on port **5173**   |
+| `npm run build`     | Type-check (strict) and build for production |
+| `npm run typecheck` | Run the TypeScript compiler with no emit     |
+| `npm run preview`   | Preview the production build locally         |
 
 ## Configuration
 
 The frontend reads a single environment variable:
 
-| Variable            | Default                 | Description                          |
-| ------------------- | ----------------------- | ------------------------------------ |
+| Variable            | Default                 | Description                                          |
+| ------------------- | ----------------------- | ---------------------------------------------------- |
 | `VITE_API_BASE_URL` | `http://localhost:8000` | Base URL of the FastAPI backend (no trailing slash). |
 
 Vite only exposes variables prefixed with `VITE_`. Put local overrides in

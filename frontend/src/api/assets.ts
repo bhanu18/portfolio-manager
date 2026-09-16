@@ -17,9 +17,7 @@ export interface ListAssetsParams {
 }
 
 /** GET /assets/ — admin only. */
-export async function listAssets(
-  params: ListAssetsParams = {},
-): Promise<Asset[]> {
+export async function listAssets(params: ListAssetsParams = {}): Promise<Asset[]> {
   const { data } = await apiClient.get<Asset[]>("/assets/", { params });
   return data;
 }
@@ -41,9 +39,7 @@ export async function getAssetById(assetId: number): Promise<AssetBySymbolResult
  * { error: "Asset not found" } body instead of a 404, so callers must
  * inspect the body. We surface the raw union and let the caller decide.
  */
-export async function getAssetBySymbol(
-  symbol: string,
-): Promise<AssetBySymbolResult> {
+export async function getAssetBySymbol(symbol: string): Promise<AssetBySymbolResult> {
   const { data } = await apiClient.get<AssetBySymbolResult>(
     `/assets/${encodeURIComponent(symbol)}`,
   );
@@ -56,26 +52,19 @@ export function isAsset(result: AssetBySymbolResult): result is Asset {
 }
 
 /** POST /assets/create — server fetches a live price via yfinance. */
-export async function createAsset(
-  payload: AssetCreatePayload,
-): Promise<Asset> {
+export async function createAsset(payload: AssetCreatePayload): Promise<Asset> {
   const { data } = await apiClient.post<Asset>("/assets/create", payload);
   return data;
 }
 
 /** POST /assets/update-all-prices — bulk refresh. */
 export async function updateAllPrices(): Promise<UpdateAllPricesResult> {
-  const { data } = await apiClient.post<UpdateAllPricesResult>(
-    "/assets/update-all-prices",
-  );
+  const { data } = await apiClient.post<UpdateAllPricesResult>("/assets/update-all-prices");
   return data;
 }
 
 /** PATCH /assets/{asset_id} — admin only. `type` is required by the schema. */
-export async function updateAsset(
-  assetId: number,
-  payload: AssetUpdatePayload,
-): Promise<Asset> {
+export async function updateAsset(assetId: number, payload: AssetUpdatePayload): Promise<Asset> {
   const { data } = await apiClient.patch<Asset>(`/assets/${assetId}`, payload);
   return data;
 }

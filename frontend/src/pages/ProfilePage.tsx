@@ -77,7 +77,10 @@ export function ProfilePage() {
 
   function handleCreate() {
     const trimmed = newGroupName.trim();
-    if (!trimmed) { setNameError("Group name is required."); return; }
+    if (!trimmed) {
+      setNameError("Group name is required.");
+      return;
+    }
     setNameError(null);
     createMutation.mutate(trimmed);
   }
@@ -182,7 +185,9 @@ export function ProfilePage() {
                         </Link>
                       </td>
                       <td>
-                        <span className={`badge ${g.role === "group_admin" ? "badge--admin" : "badge--muted"}`}>
+                        <span
+                          className={`badge ${g.role === "group_admin" ? "badge--admin" : "badge--muted"}`}
+                        >
                           {g.role === "group_admin" ? "admin" : "member"}
                         </span>
                       </td>
@@ -194,7 +199,10 @@ export function ProfilePage() {
                           <button
                             type="button"
                             className="btn btn--danger btn--sm"
-                            onClick={() => { setDeleteError(null); setDeleteTarget({ id: g.id, name: g.name }); }}
+                            onClick={() => {
+                              setDeleteError(null);
+                              setDeleteTarget({ id: g.id, name: g.name });
+                            }}
                           >
                             Delete
                           </button>
@@ -220,7 +228,9 @@ export function ProfilePage() {
 
           <form onSubmit={handlePasswordSubmit} noValidate>
             <div className="field">
-              <label htmlFor="current" className="field__label">Current password</label>
+              <label htmlFor="current" className="field__label">
+                Current password
+              </label>
               <input
                 id="current"
                 type="password"
@@ -234,7 +244,9 @@ export function ProfilePage() {
             </div>
 
             <div className="field">
-              <label htmlFor="newPassword" className="field__label">New password</label>
+              <label htmlFor="newPassword" className="field__label">
+                New password
+              </label>
               <input
                 id="newPassword"
                 type="password"
@@ -248,7 +260,9 @@ export function ProfilePage() {
             </div>
 
             <div className="field">
-              <label htmlFor="confirm" className="field__label">Confirm new password</label>
+              <label htmlFor="confirm" className="field__label">
+                Confirm new password
+              </label>
               <input
                 id="confirm"
                 type="password"
@@ -272,13 +286,21 @@ export function ProfilePage() {
       <Modal
         open={showCreate}
         title="Create Group"
-        onClose={() => { setShowCreate(false); setNewGroupName(""); setNameError(null); }}
+        onClose={() => {
+          setShowCreate(false);
+          setNewGroupName("");
+          setNameError(null);
+        }}
         footer={
           <>
             <button
               type="button"
               className="btn btn--ghost"
-              onClick={() => { setShowCreate(false); setNewGroupName(""); setNameError(null); }}
+              onClick={() => {
+                setShowCreate(false);
+                setNewGroupName("");
+                setNameError(null);
+              }}
               disabled={createMutation.isPending}
             >
               Cancel
@@ -324,7 +346,10 @@ export function ProfilePage() {
         confirmLabel="Delete"
         busy={deleteMutation.isPending}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-        onCancel={() => { setDeleteTarget(null); setDeleteError(null); }}
+        onCancel={() => {
+          setDeleteTarget(null);
+          setDeleteError(null);
+        }}
       />
     </div>
   );

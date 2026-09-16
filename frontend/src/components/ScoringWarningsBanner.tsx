@@ -32,7 +32,9 @@ export function ScoringWarningsBanner({ warnings }: ScoringWarningsBannerProps) 
           <span className="scoring-warnings-banner__title">
             {warnings.length} scoring {warnings.length === 1 ? "warning" : "warnings"}
           </span>
-          <span className={`scoring-warnings-banner__caret ${expanded ? "scoring-warnings-banner__caret--open" : ""}`}>
+          <span
+            className={`scoring-warnings-banner__caret ${expanded ? "scoring-warnings-banner__caret--open" : ""}`}
+          >
             ▼
           </span>
         </button>

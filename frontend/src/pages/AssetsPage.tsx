@@ -1,10 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as assetsApi from "../api/assets";
 import { isAsset } from "../api/assets";
 import { useAuth } from "../context/AuthContext";
@@ -14,10 +10,7 @@ import { formatDateTime, formatNumber, formatPrice } from "../lib/format";
 import { Spinner } from "../components/Spinner";
 import { ErrorState } from "../components/ErrorState";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import {
-  AssetFormModal,
-  type AssetFormValues,
-} from "../components/AssetFormModal";
+import { AssetFormModal, type AssetFormValues } from "../components/AssetFormModal";
 import type { Asset } from "../types";
 
 export function AssetsPage() {
@@ -173,21 +166,16 @@ export function AssetsPage() {
 
       {!isAdmin && (
         <div className="alert alert--info">
-          Listing all assets requires an admin account. Use the search above to
-          look up a specific asset by its symbol.
+          Listing all assets requires an admin account. Use the search above to look up a specific
+          asset by its symbol.
         </div>
       )}
 
       {isAdmin && (
         <AssetsTable
           loading={listQuery.isLoading}
-          error={
-            listQuery.isError ? getErrorMessage(listQuery.error) : null
-          }
-          forbidden={
-            listQuery.isError &&
-            parseApiError(listQuery.error).isForbidden
-          }
+          error={listQuery.isError ? getErrorMessage(listQuery.error) : null}
+          forbidden={listQuery.isError && parseApiError(listQuery.error).isForbidden}
           assets={(listQuery.data ?? []).filter(
             (a) => a.total_quantity != null && a.total_quantity > 0,
           )}
@@ -253,11 +241,7 @@ function AssetsTable({
   if (loading) return <Spinner block label="Loading assets…" />;
 
   if (forbidden) {
-    return (
-      <div className="alert alert--info">
-        You don't have permission to list all assets.
-      </div>
-    );
+    return <div className="alert alert--info">You don't have permission to list all assets.</div>;
   }
 
   if (error) return <ErrorState message={error} onRetry={onRetry} />;
@@ -290,11 +274,7 @@ function AssetsTable({
           {assets.map((asset) => (
             <tr key={asset.id}>
               <td>
-                <button
-                  type="button"
-                  className="link-button"
-                  onClick={() => onView(asset)}
-                >
+                <button type="button" className="link-button" onClick={() => onView(asset)}>
                   {asset.symbol}
                 </button>
               </td>
@@ -304,9 +284,11 @@ function AssetsTable({
                 <span className="badge badge--muted">{asset.type}</span>
               </td>
               <td className="num">
-                {asset.total_quantity != null
-                  ? formatNumber(asset.total_quantity)
-                  : <span className="muted">—</span>}
+                {asset.total_quantity != null ? (
+                  formatNumber(asset.total_quantity)
+                ) : (
+                  <span className="muted">—</span>
+                )}
               </td>
               <td className="num">{formatPrice(asset.current_price)}</td>
               <td>{formatDateTime(asset.price_last_updated)}</td>

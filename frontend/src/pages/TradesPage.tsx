@@ -1,11 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  useMutation,
-  useQueries,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as tradesApi from "../api/trades";
 import * as assetsApi from "../api/assets";
 import { useAuth } from "../context/AuthContext";
@@ -15,10 +10,7 @@ import { formatDate, formatNumber, formatPrice } from "../lib/format";
 import { Spinner } from "../components/Spinner";
 import { ErrorState } from "../components/ErrorState";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import {
-  TradeFormModal,
-  type TradeFormResult,
-} from "../components/TradeFormModal";
+import { TradeFormModal, type TradeFormResult } from "../components/TradeFormModal";
 import type { Trade } from "../types";
 
 export function TradesPage() {
@@ -27,9 +19,7 @@ export function TradesPage() {
   const queryClient = useQueryClient();
 
   const groups = user?.groups ?? [];
-  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(
-    groups[0]?.id ?? null,
-  );
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(groups[0]?.id ?? null);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Trade | null>(null);
@@ -51,13 +41,7 @@ export function TradesPage() {
   // (the quirky 200+{error} pattern) we guard with isAsset().
   const uniqueAssetIds = useMemo(
     () =>
-      Array.from(
-        new Set(
-          trades
-            .filter((t) => !t.symbol && t.asset_id > 0)
-            .map((t) => t.asset_id),
-        ),
-      ),
+      Array.from(new Set(trades.filter((t) => !t.symbol && t.asset_id > 0).map((t) => t.asset_id))),
     [trades],
   );
 
@@ -162,9 +146,8 @@ export function TradesPage() {
         <div className="empty-state">
           <p>You're not a member of any group yet.</p>
           <p className="muted">
-            Trades are scoped to a group. Once you're added to one, it'll appear
-            here. You can review your memberships on your{" "}
-            <Link to="/profile">profile</Link>.
+            Trades are scoped to a group. Once you're added to one, it'll appear here. You can
+            review your memberships on your <Link to="/profile">profile</Link>.
           </p>
         </div>
       </div>
@@ -222,9 +205,7 @@ export function TradesPage() {
         groups={groups}
         defaultGroupId={selectedGroupId}
         knownSymbol={
-          editing
-            ? editing.symbol ?? assetSymbolById.get(editing.asset_id) ?? null
-            : null
+          editing ? (editing.symbol ?? assetSymbolById.get(editing.asset_id) ?? null) : null
         }
         busy={createMutation.isPending || updateMutation.isPending}
         onCancel={() => {
@@ -237,11 +218,7 @@ export function TradesPage() {
       <ConfirmDialog
         open={deleteTarget !== null}
         title="Delete trade"
-        message={
-          deleteTarget
-            ? `Delete trade #${deleteTarget.id}? This cannot be undone.`
-            : ""
-        }
+        message={deleteTarget ? `Delete trade #${deleteTarget.id}? This cannot be undone.` : ""}
         confirmLabel="Delete"
         busy={deleteMutation.isPending}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
@@ -316,16 +293,13 @@ function TradesTable({
             // Otherwise fall back to the async-resolved symbol map.
             const symbol = t.symbol ?? assetSymbolById.get(t.asset_id);
             const isLoadingAsset = !symbol && t.asset_id > 0 && assetLoadingIds.has(t.asset_id);
-            const label = symbol
-              ?? (isLoadingAsset ? "…" : t.asset_id > 0 ? `Asset #${t.asset_id}` : "—");
+            const label =
+              symbol ?? (isLoadingAsset ? "…" : t.asset_id > 0 ? `Asset #${t.asset_id}` : "—");
             return (
               <tr key={t.id}>
                 <td>
                   {symbol ? (
-                    <Link
-                      to={`/assets/${encodeURIComponent(symbol)}`}
-                      className="link-button"
-                    >
+                    <Link to={`/assets/${encodeURIComponent(symbol)}`} className="link-button">
                       {label}
                     </Link>
                   ) : (
@@ -334,9 +308,7 @@ function TradesTable({
                 </td>
                 <td>
                   <span
-                    className={`badge ${
-                      t.trade_type === "buy" ? "badge--buy" : "badge--sell"
-                    }`}
+                    className={`badge ${t.trade_type === "buy" ? "badge--buy" : "badge--sell"}`}
                   >
                     {t.trade_type}
                   </span>

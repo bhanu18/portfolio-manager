@@ -196,9 +196,9 @@ export interface TradeResponse {
   trade_date: string;
   quantity: number;
   price_per_unit: number;
-  currency?: string;    // e.g. "USD", "THB" — present on GET /trades/symbol/{symbol}
+  currency?: string; // e.g. "USD", "THB" — present on GET /trades/symbol/{symbol}
   group_name?: string;
-  group_id?: number;    // may be present — needed for group_admin permission check
+  group_id?: number; // may be present — needed for group_admin permission check
   // Who created this trade — used for edit/delete permission checks.
   created_by_user_id?: number | null;
   created_by_user_name?: string | null; // optional, for display

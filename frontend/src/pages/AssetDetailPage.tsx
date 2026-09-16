@@ -38,8 +38,7 @@ export function AssetDetailPage() {
 
   // True while the asset is still loading or trades haven't started yet.
   // Prevents a premature "No trades" empty state.
-  const tradesLoading =
-    assetQuery.isLoading || tradesQuery.isLoading || tradesQuery.isFetching;
+  const tradesLoading = assetQuery.isLoading || tradesQuery.isLoading || tradesQuery.isFetching;
 
   if (assetQuery.isLoading) {
     return <Spinner block label="Loading asset…" />;
@@ -52,11 +51,7 @@ export function AssetDetailPage() {
           ← Back to assets
         </Link>
         <ErrorState
-          message={
-            assetQuery.error
-              ? getErrorMessage(assetQuery.error)
-              : "Asset not found."
-          }
+          message={assetQuery.error ? getErrorMessage(assetQuery.error) : "Asset not found."}
           onRetry={() => void assetQuery.refetch()}
         />
       </div>
@@ -163,11 +158,7 @@ function AssetTrades({ loading, error, trades, onRetry }: AssetTradesProps) {
           {trades.map((t) => (
             <tr key={t.id}>
               <td>
-                <span
-                  className={`badge ${
-                    t.trade_type === "buy" ? "badge--buy" : "badge--sell"
-                  }`}
-                >
+                <span className={`badge ${t.trade_type === "buy" ? "badge--buy" : "badge--sell"}`}>
                   {t.trade_type}
                 </span>
               </td>

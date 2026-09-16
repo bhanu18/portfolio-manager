@@ -12,11 +12,7 @@ interface ScoreDisplayProps {
  * - `compact`: true → badge only (grade + number), false → full metrics breakdown
  * - `expandable`: true → render clickable, toggle expanded state
  */
-export function ScoreDisplay({
-  score,
-  compact = true,
-  expandable = true,
-}: ScoreDisplayProps) {
+export function ScoreDisplay({ score, compact = true, expandable = true }: ScoreDisplayProps) {
   const [expanded, setExpanded] = useState(false);
 
   // Score is null or not available
@@ -132,7 +128,8 @@ export function ScoreDisplay({
               <p className="score-display__sample">Sample Days: {score.sample_days}</p>
               {score.insufficient_history && (
                 <p className="score-display__warning">
-                  ⚠ Insufficient data (&lt;30 trading days). Volatility-based metrics are not reliable.
+                  ⚠ Insufficient data (&lt;30 trading days). Volatility-based metrics are not
+                  reliable.
                 </p>
               )}
               {score.short_history && !score.insufficient_history && (

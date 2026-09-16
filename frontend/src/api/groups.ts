@@ -45,13 +45,8 @@ export async function addOrUpdateMember(
  * Remove a member from the group. Global admin only.
  * Returns updated GroupWithMembers.
  */
-export async function removeMember(
-  groupId: number,
-  userId: number,
-): Promise<GroupWithMembers> {
-  const { data } = await apiClient.delete<GroupWithMembers>(
-    `/groups/${groupId}/members/${userId}`,
-  );
+export async function removeMember(groupId: number, userId: number): Promise<GroupWithMembers> {
+  const { data } = await apiClient.delete<GroupWithMembers>(`/groups/${groupId}/members/${userId}`);
   return data;
 }
 

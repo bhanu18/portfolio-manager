@@ -3,11 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { getErrorMessage } from "../lib/errors";
-import {
-  validateEmail,
-  validatePassword,
-  validateRequired,
-} from "../lib/validation";
+import { validateEmail, validatePassword, validateRequired } from "../lib/validation";
 
 export function RegisterPage() {
   const { register } = useAuth();
@@ -30,8 +26,7 @@ export function RegisterPage() {
       name: validateRequired(name, "Name"),
       email: validateEmail(email),
       password: validatePassword(password),
-      confirm:
-        confirm !== password ? "Passwords do not match." : null,
+      confirm: confirm !== password ? "Passwords do not match." : null,
     };
     setErrors(nextErrors);
     if (Object.values(nextErrors).some(Boolean)) return;
@@ -90,9 +85,7 @@ export function RegisterPage() {
               onChange={(e) => setEmail(e.target.value)}
               aria-invalid={Boolean(errors.email)}
             />
-            {errors.email && (
-              <span className="field__error">{errors.email}</span>
-            )}
+            {errors.email && <span className="field__error">{errors.email}</span>}
           </div>
 
           <div className="field">
@@ -108,9 +101,7 @@ export function RegisterPage() {
               onChange={(e) => setPassword(e.target.value)}
               aria-invalid={Boolean(errors.password)}
             />
-            {errors.password && (
-              <span className="field__error">{errors.password}</span>
-            )}
+            {errors.password && <span className="field__error">{errors.password}</span>}
           </div>
 
           <div className="field">
@@ -126,16 +117,10 @@ export function RegisterPage() {
               onChange={(e) => setConfirm(e.target.value)}
               aria-invalid={Boolean(errors.confirm)}
             />
-            {errors.confirm && (
-              <span className="field__error">{errors.confirm}</span>
-            )}
+            {errors.confirm && <span className="field__error">{errors.confirm}</span>}
           </div>
 
-          <button
-            type="submit"
-            className="btn btn--primary btn--block"
-            disabled={submitting}
-          >
+          <button type="submit" className="btn btn--primary btn--block" disabled={submitting}>
             {submitting ? "Creating account…" : "Create account"}
           </button>
         </form>

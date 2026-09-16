@@ -72,9 +72,7 @@ export function ResetPasswordPage() {
               onChange={(e) => setToken(e.target.value)}
               aria-invalid={Boolean(errors.token)}
             />
-            {errors.token && (
-              <span className="field__error">{errors.token}</span>
-            )}
+            {errors.token && <span className="field__error">{errors.token}</span>}
           </div>
 
           <div className="field">
@@ -90,9 +88,7 @@ export function ResetPasswordPage() {
               onChange={(e) => setNewPassword(e.target.value)}
               aria-invalid={Boolean(errors.newPassword)}
             />
-            {errors.newPassword && (
-              <span className="field__error">{errors.newPassword}</span>
-            )}
+            {errors.newPassword && <span className="field__error">{errors.newPassword}</span>}
           </div>
 
           <div className="field">
@@ -108,16 +104,10 @@ export function ResetPasswordPage() {
               onChange={(e) => setConfirm(e.target.value)}
               aria-invalid={Boolean(errors.confirm)}
             />
-            {errors.confirm && (
-              <span className="field__error">{errors.confirm}</span>
-            )}
+            {errors.confirm && <span className="field__error">{errors.confirm}</span>}
           </div>
 
-          <button
-            type="submit"
-            className="btn btn--primary btn--block"
-            disabled={submitting}
-          >
+          <button type="submit" className="btn btn--primary btn--block" disabled={submitting}>
             {submitting ? "Resetting…" : "Reset password"}
           </button>
         </form>

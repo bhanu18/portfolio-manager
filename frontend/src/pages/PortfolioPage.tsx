@@ -9,11 +9,7 @@
 
 import { useMemo, useState, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as assetsApi from "../api/assets";
 import * as tradesApi from "../api/trades";
 import { useAuth } from "../context/AuthContext";
@@ -24,10 +20,7 @@ import { canEditOrDeleteTrade } from "../lib/permissions";
 import { Spinner } from "../components/Spinner";
 import { ErrorState } from "../components/ErrorState";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import {
-  TradeFormModal,
-  type TradeFormResult,
-} from "../components/TradeFormModal";
+import { TradeFormModal, type TradeFormResult } from "../components/TradeFormModal";
 import type { Asset } from "../types";
 
 // ─── Asset list panel ────────────────────────────────────────────────────────
@@ -88,22 +81,16 @@ function AssetHeader({ asset, currency, isAdmin, onEdit, onDelete }: AssetHeader
               {asset.type}
             </span>
           </div>
-          <div className="muted small">{asset.name} · {asset.market}</div>
+          <div className="muted small">
+            {asset.name} · {asset.market}
+          </div>
         </div>
         {isAdmin && (
           <div className="row-actions">
-            <button
-              type="button"
-              className="btn btn--ghost btn--sm"
-              onClick={onEdit}
-            >
+            <button type="button" className="btn btn--ghost btn--sm" onClick={onEdit}>
               Edit
             </button>
-            <button
-              type="button"
-              className="btn btn--danger btn--sm"
-              onClick={onDelete}
-            >
+            <button type="button" className="btn btn--danger btn--sm" onClick={onDelete}>
               Delete
             </button>
           </div>
@@ -125,9 +112,7 @@ function AssetHeader({ asset, currency, isAdmin, onEdit, onDelete }: AssetHeader
         </div>
         <div className="portfolio-stat">
           <span className="portfolio-stat__label">Market value</span>
-          <span className="portfolio-stat__value">
-            {formatValue(value, currency)}
-          </span>
+          <span className="portfolio-stat__value">{formatValue(value, currency)}</span>
         </div>
         <div className="portfolio-stat">
           <span className="portfolio-stat__label">Last updated</span>
@@ -170,9 +155,7 @@ function TradesPanel({ symbol, groups, onNewTrade }: TradesPanelProps) {
 
   // For edit we need the full Trade shape — find it from the symbol response.
   // TradeResponse has id, trade_type, trade_date, quantity, price_per_unit.
-  const editingTrade = editingId != null
-    ? (trades.find((t) => t.id === editingId) ?? null)
-    : null;
+  const editingTrade = editingId != null ? (trades.find((t) => t.id === editingId) ?? null) : null;
 
   /**
    * On 403, show a specific permission-denied message and re-sync the user
@@ -235,11 +218,7 @@ function TradesPanel({ symbol, groups, onNewTrade }: TradesPanelProps) {
     <>
       {/* Toolbar — just the "+ New trade" button, no group selector */}
       <div className="portfolio-trades-toolbar">
-        <button
-          type="button"
-          className="btn btn--primary btn--sm"
-          onClick={onNewTrade}
-        >
+        <button type="button" className="btn btn--primary btn--sm" onClick={onNewTrade}>
           + New trade
         </button>
       </div>
@@ -256,10 +235,7 @@ function TradesPanel({ symbol, groups, onNewTrade }: TradesPanelProps) {
               <p className="muted">Use "+ New trade" to record one.</p>
             </div>
           ) : (
-            <ErrorState
-              message={parsed.message}
-              onRetry={() => void tradesQuery.refetch()}
-            />
+            <ErrorState message={parsed.message} onRetry={() => void tradesQuery.refetch()} />
           );
         })()
       ) : trades.length === 0 ? (
@@ -287,7 +263,9 @@ function TradesPanel({ symbol, groups, onNewTrade }: TradesPanelProps) {
                 return (
                   <tr key={t.id}>
                     <td>
-                      <span className={`badge ${t.trade_type === "buy" ? "badge--buy" : "badge--sell"}`}>
+                      <span
+                        className={`badge ${t.trade_type === "buy" ? "badge--buy" : "badge--sell"}`}
+                      >
                         {t.trade_type}
                       </span>
                     </td>
@@ -364,7 +342,10 @@ function TradesPanel({ symbol, groups, onNewTrade }: TradesPanelProps) {
           defaultGroupId={groups[0]?.id ?? null}
           knownSymbol={symbol}
           busy={updateMutation.isPending}
-          onCancel={() => { setFormOpen(false); setEditingId(null); }}
+          onCancel={() => {
+            setFormOpen(false);
+            setEditingId(null);
+          }}
           onSubmit={(result) => {
             updateMutation.mutate({ id: editingTrade.id, values: result.values });
           }}
@@ -374,7 +355,9 @@ function TradesPanel({ symbol, groups, onNewTrade }: TradesPanelProps) {
       <ConfirmDialog
         open={deleteTarget !== null}
         title="Delete trade"
-        message={deleteTarget ? `Delete this ${deleteTarget.trade_type} trade? This cannot be undone.` : ""}
+        message={
+          deleteTarget ? `Delete this ${deleteTarget.trade_type} trade? This cannot be undone.` : ""
+        }
         confirmLabel="Delete"
         busy={deleteMutation.isPending}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
@@ -422,7 +405,9 @@ export function PortfolioPage() {
     // Fetch trades from each group in parallel (403 on any = skip it gracefully).
     const perGroupTrades = await Promise.all(
       groups.map((g) =>
-        tradesApi.listTradesInGroup(g.id).catch(() => [] as Awaited<ReturnType<typeof tradesApi.listTradesInGroup>>),
+        tradesApi
+          .listTradesInGroup(g.id)
+          .catch(() => [] as Awaited<ReturnType<typeof tradesApi.listTradesInGroup>>),
       ),
     );
     const allTrades = perGroupTrades.flat();
@@ -555,7 +540,9 @@ export function PortfolioPage() {
         {groups.length === 0 && !isAdmin ? (
           <div className="portfolio-sidebar__empty muted small">
             You're not in any group yet.{" "}
-            <Link to="/profile" style={{ fontSize: "inherit" }}>Profile →</Link>
+            <Link to="/profile" style={{ fontSize: "inherit" }}>
+              Profile →
+            </Link>
           </div>
         ) : listQuery.isLoading ? (
           <Spinner block label="Loading…" />
@@ -564,9 +551,7 @@ export function PortfolioPage() {
             {getErrorMessage(listQuery.error)}
           </div>
         ) : assets.length === 0 ? (
-          <div className="portfolio-sidebar__empty muted small">
-            No positions yet.
-          </div>
+          <div className="portfolio-sidebar__empty muted small">No positions yet.</div>
         ) : (
           <div className="portfolio-asset-list">
             {assets.map((a) => (
@@ -670,10 +655,7 @@ export function PortfolioPage() {
 
 // ─── Thin wrapper to lazy-import AssetFormModal only when needed ─────────────
 
-import {
-  AssetFormModal,
-  type AssetFormValues,
-} from "../components/AssetFormModal";
+import { AssetFormModal, type AssetFormValues } from "../components/AssetFormModal";
 import * as assetsApiAlias from "../api/assets";
 
 function AssetEditWrapper({

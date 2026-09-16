@@ -25,7 +25,12 @@ export function GroupDetailPage() {
   const queryClient = useQueryClient();
 
   // Fetch group detail.
-  const { data: group, isLoading, isError, error } = useQuery({
+  const {
+    data: group,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ["group", id],
     queryFn: () => getGroup(id),
     enabled: !Number.isNaN(id),
@@ -76,7 +81,9 @@ export function GroupDetailPage() {
   });
 
   // --- Change role state ---
-  const [changeRoleTarget, setChangeRoleTarget] = useState<{ id: number; name: string } | null>(null);
+  const [changeRoleTarget, setChangeRoleTarget] = useState<{ id: number; name: string } | null>(
+    null,
+  );
   const [changeRoleValue, setChangeRoleValue] = useState<GroupMemberRole>("member");
 
   const changeRoleMutation = useMutation({
@@ -154,10 +161,7 @@ export function GroupDetailPage() {
             </span>
           </h1>
           <div className="page__actions">
-            <Link
-              to={`/trades?group=${group.id}`}
-              className="btn btn--ghost btn--sm"
-            >
+            <Link to={`/trades?group=${group.id}`} className="btn btn--ghost btn--sm">
               View Trades →
             </Link>
             {isAdmin && (
@@ -185,7 +189,9 @@ export function GroupDetailPage() {
         <div className="card">
           <h2 className="card__title">Members ({group.members.length})</h2>
           {group.members.length === 0 ? (
-            <p className="muted" style={{ marginTop: "1rem" }}>No members yet.</p>
+            <p className="muted" style={{ marginTop: "1rem" }}>
+              No members yet.
+            </p>
           ) : (
             <div className="table-wrap" style={{ marginTop: "1rem" }}>
               <table className="table">
@@ -241,11 +247,7 @@ export function GroupDetailPage() {
         title="Rename Group"
         onClose={() => setShowRename(false)}
         footer={
-          <button
-            type="button"
-            className="btn btn--ghost"
-            onClick={() => setShowRename(false)}
-          >
+          <button type="button" className="btn btn--ghost" onClick={() => setShowRename(false)}>
             Close
           </button>
         }
@@ -254,13 +256,10 @@ export function GroupDetailPage() {
           Group renaming is coming soon.
         </div>
         <div className="field">
-          <label className="field__label" htmlFor="rename-group">Group name</label>
-          <input
-            id="rename-group"
-            className="field__input"
-            defaultValue={group.name}
-            disabled
-          />
+          <label className="field__label" htmlFor="rename-group">
+            Group name
+          </label>
+          <input id="rename-group" className="field__input" defaultValue={group.name} disabled />
         </div>
       </Modal>
 
@@ -325,14 +324,14 @@ export function GroupDetailPage() {
               ))}
             </select>
           ) : (
-            <p className="muted small">
-              All available users are already members of this group.
-            </p>
+            <p className="muted small">All available users are already members of this group.</p>
           )}
         </div>
 
         <div className="field">
-          <label className="field__label" htmlFor="add-member-role">Role</label>
+          <label className="field__label" htmlFor="add-member-role">
+            Role
+          </label>
           <select
             id="add-member-role"
             className="field__input"
@@ -372,7 +371,9 @@ export function GroupDetailPage() {
         }
       >
         <div className="field">
-          <label className="field__label" htmlFor="change-role-value">New role</label>
+          <label className="field__label" htmlFor="change-role-value">
+            New role
+          </label>
           <select
             id="change-role-value"
             className="field__input"

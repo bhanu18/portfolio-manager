@@ -14,6 +14,7 @@ from core.config import settings
 # The tokenUrl points to your login endpoint.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login/access-token")
 
+
 async def get_db():
     async with AsyncSessionLocal() as db:
         try:
@@ -21,9 +22,9 @@ async def get_db():
         finally:
             await db.close()
 
+
 async def get_current_user(
-    token: str = Depends(oauth2_scheme), 
-    db: AsyncSession = Depends(get_db)
+    token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)
 ) -> user_schema.User:
     """
     Decodes the JWT token to get the user's email, then fetches the user from the DB.
@@ -44,16 +45,17 @@ async def get_current_user(
     except JWTError:
         # This catches errors like expired tokens or invalid signatures
         raise credentials_exception
-    
+
     # Fetch the user from the database
     user = await service.get_user_by_email(db, email=token_data.email)
     if user is None:
         raise credentials_exception
-    
+
     return user
 
+
 async def get_current_active_user(
-    current_user: user_schema.User = Depends(get_current_user)
+    current_user: user_schema.User = Depends(get_current_user),
 ) -> user_schema.User:
     """
 
@@ -63,7 +65,8 @@ async def get_current_active_user(
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
-           
+
+
 def get_current_active_admin_user(
     current_user: user_schema.User = Depends(get_current_active_user),
 ) -> user_schema.User:
@@ -77,6 +80,7 @@ def get_current_active_admin_user(
             detail="The user does not have sufficient privileges",
         )
     return current_user
+
 
 def get_current_active_regular_user(
     current_user: user_schema.User = Depends(get_current_active_user),
@@ -93,6 +97,7 @@ def get_current_active_regular_user(
         )
     return current_user
 
+
 async def get_group_from_path(group_id: int, db: AsyncSession = Depends(get_db)) -> Group:
     """Dependency to fetch a group by ID from the path."""
     group = await service.get_group_by_id(db, group_id=group_id)
@@ -100,17 +105,20 @@ async def get_group_from_path(group_id: int, db: AsyncSession = Depends(get_db))
         raise HTTPException(status_code=404, detail="Group not found")
     return group
 
+
 async def get_current_group_admin(
     current_user: user_schema.User = Depends(get_current_active_user),
-    group: Group = Depends(get_group_from_path)
+    group: Group = Depends(get_group_from_path),
 ) -> Group:
     """
     Dependency that checks if the current user is an admin of the specified group.
     Returns the group object if authorized.
     """
     # Find the association for this user and group
-    association = next((assoc for assoc in current_user.group_associations if assoc.group_id == group.id), None)
-    
+    association = next(
+        (assoc for assoc in current_user.group_associations if assoc.group_id == group.id), None
+    )
+
     if not association or association.role != GroupMemberRole.ADMIN:
         raise HTTPException(
             status_code=403,

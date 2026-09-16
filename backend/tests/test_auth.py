@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 # Mark all tests in this file to be run with asyncio
 pytestmark = pytest.mark.asyncio
 
+
 # Change test functions from 'def' to 'async def'
 async def test_create_user_success(client: TestClient):
     """
@@ -18,6 +19,7 @@ async def test_create_user_success(client: TestClient):
     data = response.json()
     assert data["email"] == "test@example.com"
     # ... other assertions
+
 
 async def test_create_user_duplicate_email(client: TestClient):
     """
@@ -36,6 +38,7 @@ async def test_create_user_duplicate_email(client: TestClient):
     assert response.status_code == 400
     assert "already exists" in response.json()["detail"]
 
+
 async def test_login_for_access_token_success(client: TestClient):
     """
     Test successful login and token generation.
@@ -45,7 +48,7 @@ async def test_login_for_access_token_success(client: TestClient):
         "/register",
         json={"name": "Login User", "email": "login@example.com", "password": "password123"},
     )
-    
+
     # Now, log in
     response = client.post(
         "/login/access-token",
@@ -56,6 +59,7 @@ async def test_login_for_access_token_success(client: TestClient):
     assert "access_token" in data
     assert data["token_type"] == "bearer"
 
+
 async def test_login_for_access_token_failure(client: TestClient):
     """
     Test login with incorrect password.
@@ -65,7 +69,7 @@ async def test_login_for_access_token_failure(client: TestClient):
         "/register",
         json={"name": "Login User", "email": "loginfail@example.com", "password": "password123"},
     )
-    
+
     # Try to log in with the wrong password
     response = client.post(
         "/login/access-token",

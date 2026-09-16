@@ -134,9 +134,7 @@ async def update_all_asset_prices(db: AsyncSession = Depends(get_db)):
     db_assets = await service.get_all_assets(db)
 
     for asset in db_assets:
-        if asset.price_last_updated and (
-            now - asset.price_last_updated < timedelta(days=1)
-        ):
+        if asset.price_last_updated and (now - asset.price_last_updated < timedelta(days=1)):
             skipped_symbols.append(asset.symbol)
             continue
 

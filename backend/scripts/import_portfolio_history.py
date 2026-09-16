@@ -44,6 +44,7 @@ ASSET_TYPE_MAP = {
     "ETF": "etf",
 }
 
+
 # Maps sheet names to a human-friendly group name (identity mapping by default)
 def sheet_to_group_name(sheet_name: str) -> str:
     return sheet_name.replace("_", " ").title()
@@ -64,7 +65,9 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def get_or_create_asset(session: Session, symbol: str, asset_type: str, currency: str, current_price: float | None) -> Asset:
+def get_or_create_asset(
+    session: Session, symbol: str, asset_type: str, currency: str, current_price: float | None
+) -> Asset:
     asset = session.query(Asset).filter_by(symbol=symbol).first()
     if asset:
         # Update current price if we have a fresher value
@@ -77,8 +80,8 @@ def get_or_create_asset(session: Session, symbol: str, asset_type: str, currency
     now = datetime.utcnow()
     asset = Asset(
         symbol=symbol,
-        name=symbol,          # Name defaults to symbol; can be updated later via the API
-        market=currency,      # Use currency as a proxy for market (e.g. USD → US market, THB → Thai market)
+        name=symbol,  # Name defaults to symbol; can be updated later via the API
+        market=currency,  # Use currency as a proxy for market (e.g. USD → US market, THB → Thai market)
         type=asset_type,
         current_price=current_price,
         price_last_updated=now if current_price is not None else None,
@@ -135,7 +138,9 @@ def import_sheet(session: Session, ws, group_name: str, dry_run: bool) -> tuple[
             warnings.append(f"Row {row_idx} ({symbol}): missing Quantity — skipped")
             continue
 
-        asset_type = ASSET_TYPE_MAP.get(str(asset_type_raw).upper() if asset_type_raw else "", "stock")
+        asset_type = ASSET_TYPE_MAP.get(
+            str(asset_type_raw).upper() if asset_type_raw else "", "stock"
+        )
         currency_str = str(currency).strip() if currency else "USD"
 
         if dry_run:
@@ -187,7 +192,9 @@ def main() -> None:
         for sheet_name in wb.sheetnames:
             ws = wb[sheet_name]
             group_name = sheet_to_group_name(sheet_name)
-            print(f"\nProcessing sheet '{sheet_name}' → group '{group_name}' ({ws.max_row - 1} data rows)")
+            print(
+                f"\nProcessing sheet '{sheet_name}' → group '{group_name}' ({ws.max_row - 1} data rows)"
+            )
 
             imported, warnings = import_sheet(session, ws, group_name, dry_run=args.dry_run)
             total_imported += imported

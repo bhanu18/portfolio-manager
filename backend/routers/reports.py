@@ -59,6 +59,7 @@ async def get_portfolio_valuation_by_symbol(
 
     try:
         import yfinance as yf
+
         ticker = yf.Ticker(asset.symbol)
         info = ticker.info
         asset_currency = info.get("currency", "USD").upper()
@@ -129,11 +130,10 @@ async def get_portfolio_valuation_by_symbol(
         },
     }
 
+
 @router.get("/portfolio-performance", summary="Get comprehensive portfolio performance analysis")
 async def get_portfolio_performance(
-    base_currency: str = "USD",
-    benchmark_ticker: str = "SPY",
-    db: AsyncSession = Depends(get_db)
+    base_currency: str = "USD", benchmark_ticker: str = "SPY", db: AsyncSession = Depends(get_db)
 ):
     """
     Comprehensive portfolio performance analysis with multi-currency support.
@@ -165,7 +165,12 @@ async def get_portfolio_performance(
     def get_historical_fx_rate(from_currency: str, to_currency: str, date: datetime) -> dict:
         """Get historical FX rate at specific date"""
         if from_currency == to_currency:
-            return {"rate": 1.0, "actual_date": date.strftime("%Y-%m-%d"), "source": "same_currency", "warning": None}
+            return {
+                "rate": 1.0,
+                "actual_date": date.strftime("%Y-%m-%d"),
+                "source": "same_currency",
+                "warning": None,
+            }
 
         cache_key = f"{from_currency}{to_currency}_{date.strftime('%Y-%m-%d')}"
         if cache_key in fx_cache:
@@ -180,13 +185,17 @@ async def get_portfolio_performance(
 
             if not hist.empty:
                 # Get closest date
-                closest_date = hist.index[hist.index <= date][-1] if any(hist.index <= date) else hist.index[0]
-                rate = hist.loc[closest_date, 'Close']
+                closest_date = (
+                    hist.index[hist.index <= date][-1] if any(hist.index <= date) else hist.index[0]
+                )
+                rate = hist.loc[closest_date, "Close"]
                 result = {
                     "rate": float(rate),
                     "actual_date": closest_date.strftime("%Y-%m-%d"),
                     "source": "yfinance",
-                    "warning": None if closest_date.date() == date.date() else f"Used {closest_date.date()} (nearest to {date.date()})"
+                    "warning": None
+                    if closest_date.date() == date.date()
+                    else f"Used {closest_date.date()} (nearest to {date.date()})",
                 }
                 fx_cache[cache_key] = result
                 return result
@@ -200,13 +209,17 @@ async def get_portfolio_performance(
             hist = ticker.history(start=date - timedelta(days=7), end=date + timedelta(days=1))
 
             if not hist.empty:
-                closest_date = hist.index[hist.index <= date][-1] if any(hist.index <= date) else hist.index[0]
-                rate = 1.0 / hist.loc[closest_date, 'Close']
+                closest_date = (
+                    hist.index[hist.index <= date][-1] if any(hist.index <= date) else hist.index[0]
+                )
+                rate = 1.0 / hist.loc[closest_date, "Close"]
                 result = {
                     "rate": float(rate),
                     "actual_date": closest_date.strftime("%Y-%m-%d"),
                     "source": "yfinance_inverse",
-                    "warning": None if closest_date.date() == date.date() else f"Used {closest_date.date()} (nearest to {date.date()})"
+                    "warning": None
+                    if closest_date.date() == date.date()
+                    else f"Used {closest_date.date()} (nearest to {date.date()})",
                 }
                 fx_cache[cache_key] = result
                 return result
@@ -217,11 +230,21 @@ async def get_portfolio_performance(
         try:
             current_rate = c.get_rate(from_currency, to_currency)
             warning = f"Historical FX rate unavailable for {date.date()}, using current rate"
-            result = {"rate": current_rate, "actual_date": now.strftime("%Y-%m-%d"), "source": "fallback_current", "warning": warning}
+            result = {
+                "rate": current_rate,
+                "actual_date": now.strftime("%Y-%m-%d"),
+                "source": "fallback_current",
+                "warning": warning,
+            }
             fx_cache[cache_key] = result
             return result
         except:
-            result = {"rate": 1.0, "actual_date": date.strftime("%Y-%m-%d"), "source": "fallback_default", "warning": f"FX rate unavailable, using 1.0"}
+            result = {
+                "rate": 1.0,
+                "actual_date": date.strftime("%Y-%m-%d"),
+                "source": "fallback_default",
+                "warning": f"FX rate unavailable, using 1.0",
+            }
             return result
 
     # Helper function to get current FX rate
@@ -234,7 +257,9 @@ async def get_portfolio_performance(
         except:
             return 1.0
 
-    print(f"\n[Portfolio Performance Analysis] Report Date: {report_date}, Base Currency: {base_currency}")
+    print(
+        f"\n[Portfolio Performance Analysis] Report Date: {report_date}, Base Currency: {base_currency}"
+    )
 
     # Fetch all trades and assets (set high limit to get all records)
     all_trades = await service.get_all_trades(db, skip=0, limit=10000)
@@ -272,7 +297,9 @@ async def get_portfolio_performance(
     total_current_value_base = 0
     total_dividends_base = 0
 
-    by_currency = defaultdict(lambda: {"value_base": 0, "cost_basis_base": 0, "local_gain": 0, "fx_gain": 0})
+    by_currency = defaultdict(
+        lambda: {"value_base": 0, "cost_basis_base": 0, "local_gain": 0, "fx_gain": 0}
+    )
     by_asset_type = defaultdict(lambda: {"value_base": 0, "cost_basis_base": 0})
 
     for asset_id, holding_data in holdings_by_asset.items():
@@ -298,7 +325,9 @@ async def get_portfolio_performance(
             qty_from_this_trade = min(buy_trade.quantity, quantity_remaining)
 
             # Get historical FX rate at purchase date
-            fx_data = get_historical_fx_rate(buy_trade.currency, base_currency, buy_trade.trade_date)
+            fx_data = get_historical_fx_rate(
+                buy_trade.currency, base_currency, buy_trade.trade_date
+            )
             fx_rate_at_purchase = fx_data["rate"]
 
             if fx_data["warning"]:
@@ -328,7 +357,11 @@ async def get_portfolio_performance(
         # Get current price
         try:
             ticker = yf.Ticker(asset.symbol)
-            current_price = asset.current_price if asset.current_price else ticker.info.get("regularMarketPrice", 0)
+            current_price = (
+                asset.current_price
+                if asset.current_price
+                else ticker.info.get("regularMarketPrice", 0)
+            )
             if not current_price:
                 hist = ticker.history(period="1d")
                 current_price = hist["Close"].iloc[-1] if not hist.empty else 0
@@ -346,12 +379,26 @@ async def get_portfolio_performance(
         cost_basis_original = avg_purchase_price * holding_data["quantity"]
 
         # Return attribution
-        local_return_pct = ((current_price - avg_purchase_price) / avg_purchase_price) * 100 if avg_purchase_price > 0 else 0
-        fx_return_pct = ((fx_rate_current - avg_fx_at_purchase) / avg_fx_at_purchase) * 100 if avg_fx_at_purchase > 0 else 0
-        total_return_pct = ((current_value_base - cost_basis_base) / cost_basis_base) * 100 if cost_basis_base > 0 else 0
+        local_return_pct = (
+            ((current_price - avg_purchase_price) / avg_purchase_price) * 100
+            if avg_purchase_price > 0
+            else 0
+        )
+        fx_return_pct = (
+            ((fx_rate_current - avg_fx_at_purchase) / avg_fx_at_purchase) * 100
+            if avg_fx_at_purchase > 0
+            else 0
+        )
+        total_return_pct = (
+            ((current_value_base - cost_basis_base) / cost_basis_base) * 100
+            if cost_basis_base > 0
+            else 0
+        )
 
         # Calculate gains in base currency
-        local_gain_base = (current_price - avg_purchase_price) * holding_data["quantity"] * avg_fx_at_purchase
+        local_gain_base = (
+            (current_price - avg_purchase_price) * holding_data["quantity"] * avg_fx_at_purchase
+        )
         fx_gain_base = cost_basis_original * (fx_rate_current - avg_fx_at_purchase)
 
         # Holding period
@@ -361,7 +408,11 @@ async def get_portfolio_performance(
         # Annualized return
         if holding_period_days > 0:
             years = holding_period_days / 365.0
-            annualized_return = (((current_value_base / cost_basis_base) ** (1 / years)) - 1) * 100 if cost_basis_base > 0 else 0
+            annualized_return = (
+                (((current_value_base / cost_basis_base) ** (1 / years)) - 1) * 100
+                if cost_basis_base > 0
+                else 0
+            )
         else:
             annualized_return = 0
 
@@ -383,7 +434,9 @@ async def get_portfolio_performance(
         holding_analysis = {
             "ticker": asset.symbol,
             "asset_name": asset.name,
-            "purchase_date": earliest_purchase_date.strftime("%Y-%m-%d") if earliest_purchase_date else None,
+            "purchase_date": earliest_purchase_date.strftime("%Y-%m-%d")
+            if earliest_purchase_date
+            else None,
             "original_currency": trade_currency,
             "purchase_price_original": round(avg_purchase_price, 2),
             "current_price_original": round(current_price, 2),
@@ -403,17 +456,25 @@ async def get_portfolio_performance(
             "is_long_term": is_long_term,
             "annualized_return": round(annualized_return, 2),
             "weight_pct": 0,  # Will calculate after totals
-            "asset_type": asset.type
+            "asset_type": asset.type,
         }
         holdings_analysis.append(holding_analysis)
 
     # Calculate weights
     for holding in holdings_analysis:
-        holding["weight_pct"] = round((holding["current_value_base"] / total_current_value_base) * 100, 2) if total_current_value_base > 0 else 0
+        holding["weight_pct"] = (
+            round((holding["current_value_base"] / total_current_value_base) * 100, 2)
+            if total_current_value_base > 0
+            else 0
+        )
 
     # Calculate portfolio-level metrics
     total_unrealized_gain_loss = total_current_value_base - total_cost_basis_base
-    total_unrealized_gain_loss_pct = (total_unrealized_gain_loss / total_cost_basis_base) * 100 if total_cost_basis_base > 0 else 0
+    total_unrealized_gain_loss_pct = (
+        (total_unrealized_gain_loss / total_cost_basis_base) * 100
+        if total_cost_basis_base > 0
+        else 0
+    )
 
     # Calculate currency impact summary
     total_local_gain = sum(curr_data["local_gain"] for curr_data in by_currency.values())
@@ -439,17 +500,29 @@ async def get_portfolio_performance(
     # Format by_currency for output
     by_currency_output = {}
     for currency, data in by_currency.items():
-        local_return = (data["local_gain"] / data["cost_basis_base"]) * 100 if data["cost_basis_base"] > 0 else 0
-        fx_return = (data["fx_gain"] / data["cost_basis_base"]) * 100 if data["cost_basis_base"] > 0 else 0
-        total_return = ((data["value_base"] - data["cost_basis_base"]) / data["cost_basis_base"]) * 100 if data["cost_basis_base"] > 0 else 0
+        local_return = (
+            (data["local_gain"] / data["cost_basis_base"]) * 100
+            if data["cost_basis_base"] > 0
+            else 0
+        )
+        fx_return = (
+            (data["fx_gain"] / data["cost_basis_base"]) * 100 if data["cost_basis_base"] > 0 else 0
+        )
+        total_return = (
+            ((data["value_base"] - data["cost_basis_base"]) / data["cost_basis_base"]) * 100
+            if data["cost_basis_base"] > 0
+            else 0
+        )
 
         by_currency_output[currency] = {
             "value_base": round(data["value_base"], 2),
             "cost_basis_base": round(data["cost_basis_base"], 2),
-            "weight_pct": round((data["value_base"] / total_current_value_base) * 100, 2) if total_current_value_base > 0 else 0,
+            "weight_pct": round((data["value_base"] / total_current_value_base) * 100, 2)
+            if total_current_value_base > 0
+            else 0,
             "local_return_pct": round(local_return, 2),
             "fx_return_pct": round(fx_return, 2),
-            "total_return_pct": round(total_return, 2)
+            "total_return_pct": round(total_return, 2),
         }
 
     # Format by_asset_type for output
@@ -458,13 +531,21 @@ async def get_portfolio_performance(
         by_asset_type_output[asset_type] = {
             "value_base": round(data["value_base"], 2),
             "cost_basis_base": round(data["cost_basis_base"], 2),
-            "weight_pct": round((data["value_base"] / total_current_value_base) * 100, 2) if total_current_value_base > 0 else 0
+            "weight_pct": round((data["value_base"] / total_current_value_base) * 100, 2)
+            if total_current_value_base > 0
+            else 0,
         }
 
     # Top and bottom performers
     sorted_holdings = sorted(holdings_analysis, key=lambda x: x["total_return_pct"], reverse=True)
-    top_performers = [{"ticker": h["ticker"], "total_return_pct": h["total_return_pct"]} for h in sorted_holdings[:5]]
-    bottom_performers = [{"ticker": h["ticker"], "total_return_pct": h["total_return_pct"]} for h in sorted_holdings[-5:]]
+    top_performers = [
+        {"ticker": h["ticker"], "total_return_pct": h["total_return_pct"]}
+        for h in sorted_holdings[:5]
+    ]
+    bottom_performers = [
+        {"ticker": h["ticker"], "total_return_pct": h["total_return_pct"]}
+        for h in sorted_holdings[-5:]
+    ]
 
     return {
         "report_date": report_date,
@@ -476,20 +557,28 @@ async def get_portfolio_performance(
             "total_unrealized_gain_loss": round(total_unrealized_gain_loss, 2),
             "total_unrealized_gain_loss_pct": round(total_unrealized_gain_loss_pct, 2),
             "total_dividends_received": round(total_dividends_base, 2),
-            "total_return_with_dividends": round(total_unrealized_gain_loss_pct, 2),  # Same as unrealized for now
+            "total_return_with_dividends": round(
+                total_unrealized_gain_loss_pct, 2
+            ),  # Same as unrealized for now
             "benchmark_ticker": benchmark_ticker,
             "benchmark_return": round(benchmark_return, 2),
             "alpha": round(alpha, 2),
             "currency_impact_summary": {
                 "total_fx_gain_loss": round(total_fx_gain, 2),
-                "total_fx_contribution_pct": round((total_fx_gain / total_cost_basis_base) * 100, 2) if total_cost_basis_base > 0 else 0,
-                "total_local_contribution_pct": round((total_local_gain / total_cost_basis_base) * 100, 2) if total_cost_basis_base > 0 else 0
-            }
+                "total_fx_contribution_pct": round((total_fx_gain / total_cost_basis_base) * 100, 2)
+                if total_cost_basis_base > 0
+                else 0,
+                "total_local_contribution_pct": round(
+                    (total_local_gain / total_cost_basis_base) * 100, 2
+                )
+                if total_cost_basis_base > 0
+                else 0,
+            },
         },
         "holdings": holdings_analysis,
         "by_currency": by_currency_output,
         "by_asset_type": by_asset_type_output,
         "top_performers": top_performers,
         "bottom_performers": bottom_performers,
-        "fx_warnings": fx_warnings[:10]  # Limit warnings
+        "fx_warnings": fx_warnings[:10],  # Limit warnings
     }

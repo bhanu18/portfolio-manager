@@ -71,22 +71,22 @@ async def get_yfinance_data_batch(symbols: list) -> dict:
 async def import_csv_to_db():
     print("Reading CSV file...")
     df = pd.read_csv(CSV_FILE_PATH)
-    
+
     # --- DATA CLEANING (Fixes the NaN Error) ---
     print("Cleaning data...")
-    
+
     # 1. Force columns to numeric, turning text/errors into NaN
-    df['Quantity'] = pd.to_numeric(df['Quantity'], errors='coerce')
-    df['Purchase Price'] = pd.to_numeric(df['Purchase Price'], errors='coerce')
-    
+    df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce")
+    df["Purchase Price"] = pd.to_numeric(df["Purchase Price"], errors="coerce")
+
     # 2. Drop rows where Quantity or Price is NaN (Invalid trades)
     initial_count = len(df)
-    df.dropna(subset=['Quantity', 'Purchase Price'], inplace=True)
+    df.dropna(subset=["Quantity", "Purchase Price"], inplace=True)
     dropped_count = initial_count - len(df)
-    
+
     if dropped_count > 0:
         print(f"⚠️ Dropped {dropped_count} rows due to missing Quantity or Price.")
-        
+
     # 3. Replace any remaining NaNs (e.g. in Currency) with None (SQL NULL)
     df = df.where(pd.notnull(df), None)
     df["Date"] = pd.to_datetime(df["Date"])
@@ -138,9 +138,8 @@ async def import_csv_to_db():
         trades_to_insert = []
 
         for index, row in df.iterrows():
-            
             purchase_price = row["Purchase Price"]
-            
+
             symbol = row["Symbol"]
             asset_id = symbol_id_map.get(symbol)
 
@@ -155,7 +154,7 @@ async def import_csv_to_db():
                 quantity=float(row["Quantity"]),
                 price_per_unit=float(purchase_price),
                 currency=row["Currency"],
-                group_id=1
+                group_id=1,
             )
             trades_to_insert.append(trade)
 

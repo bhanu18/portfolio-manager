@@ -36,9 +36,7 @@ async def get_all_assets(db: AsyncSession, skip: int = 0, limit: int = 100):
     return result.scalars().all()
 
 
-async def get_asset_by_symbol_or_id(
-    db: AsyncSession, symbol: str = None, asset_id: int = None
-):
+async def get_asset_by_symbol_or_id(db: AsyncSession, symbol: str = None, asset_id: int = None):
     """Fetches an asset by either its symbol or ID."""
     if symbol:
         return await get_asset_by_symbol(db, symbol)
@@ -107,9 +105,7 @@ async def delete_asset(db: AsyncSession, db_asset: orm_models.Asset):
     return True  # Return True on successful deletion
 
 
-async def update_asset_price(
-    db: AsyncSession, asset_id: int, new_price: float
-):
+async def update_asset_price(db: AsyncSession, asset_id: int, new_price: float):
     """
     Updates the price and timestamp for a given asset by ID.
     Refetches the asset to ensure it's properly attached to the session.
@@ -163,9 +159,7 @@ async def get_trades_before_date(db: AsyncSession, end_date: datetime):
     return result.scalars().all()
 
 
-async def get_trades_in_date_range(
-    db: AsyncSession, start_date: datetime, end_date: datetime
-):
+async def get_trades_in_date_range(db: AsyncSession, start_date: datetime, end_date: datetime):
     """Fetches all trades within a specific date range."""
     query = select(orm_models.Trade).where(
         orm_models.Trade.trade_date >= start_date,
@@ -180,17 +174,13 @@ async def get_trade_by_id(db: AsyncSession, trade_id: int):
     query = (
         select(orm_models.Trade)
         .where(orm_models.Trade.id == trade_id)
-        .options(
-            selectinload(orm_models.Trade.group).selectinload(orm_models.Group.members)
-        )
+        .options(selectinload(orm_models.Trade.group).selectinload(orm_models.Group.members))
     )
     result = await db.execute(query)
     return result.scalar_one_or_none()
 
 
-async def get_trades_by_group_id(
-    db: AsyncSession, group_id: int, skip: int = 0, limit: int = 100
-):
+async def get_trades_by_group_id(db: AsyncSession, group_id: int, skip: int = 0, limit: int = 100):
     """
     Fetches all trades for a specific group ID with pagination.
     """
@@ -232,7 +222,8 @@ async def delete_trade(db: AsyncSession, db_trade: orm_models.Trade):
 async def get_user_by_email(db: AsyncSession, email: str):
     """Fetches a single user by their email."""
     query = (
-        select(orm_models.User).where(orm_models.User.email == email)
+        select(orm_models.User)
+        .where(orm_models.User.email == email)
         # --- THE CORRECTED QUERY ---
         .options(
             selectinload(orm_models.User.group_associations).selectinload(
@@ -286,9 +277,7 @@ async def get_user_by_id(db: AsyncSession, user_id: int):
     query = (
         select(orm_models.User)
         .where(orm_models.User.id == user_id)
-        .options(
-            selectinload(orm_models.User.group_associations)
-        )  # Eagerly load the links
+        .options(selectinload(orm_models.User.group_associations))  # Eagerly load the links
     )
     result = await db.execute(query)
     return result.scalar_one_or_none()
@@ -308,9 +297,7 @@ async def update_user_password(db: AsyncSession, user: orm_models.User, new_pass
 # =================================================================
 
 
-async def create_group(
-    db: AsyncSession, group: group_schema.GroupCreate, owner: user_schema.User
-):
+async def create_group(db: AsyncSession, group: group_schema.GroupCreate, owner: user_schema.User):
     """Creates a new group and assigns the creator as the 'group_admin'."""
     db_group = Group(name=group.name)
 

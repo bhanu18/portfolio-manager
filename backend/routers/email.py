@@ -17,7 +17,7 @@ limiter = Limiter(key_func=get_remote_address)
 async def send_email(
     request: Request,
     email_data: EmailRequest,
-    current_user: user_schema.User = Depends(get_current_active_regular_user)
+    current_user: user_schema.User = Depends(get_current_active_regular_user),
 ):
     """
     Send an email to one or more recipients.

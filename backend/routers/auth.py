@@ -23,12 +23,11 @@ router = APIRouter(tags=["Authentication"])
 # Initialize rate limiter for this router
 limiter = Limiter(key_func=get_remote_address)
 
+
 @router.post("/register", response_model=user_schema.User)
 @limiter.limit("3/hour")
 async def register_new_user(
-    request: Request,
-    user_in: user_schema.UserCreate,
-    db: AsyncSession = Depends(get_db)
+    request: Request, user_in: user_schema.UserCreate, db: AsyncSession = Depends(get_db)
 ) -> Any:
     """
     Create a new user.
@@ -51,7 +50,7 @@ async def register_new_user(
 async def login_for_access_token(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    form_data: OAuth2PasswordRequestForm = Depends()
+    form_data: OAuth2PasswordRequestForm = Depends(),
 ) -> Any:
     """
     OAuth2 compatible token login, get an access token for future requests.
@@ -60,7 +59,9 @@ async def login_for_access_token(
     to prevent brute force attacks. If you exceed this limit, you'll receive a 429 error
     and must wait before trying again.
     """
-    user = await service.get_user_by_email(db, email=form_data.username) # form_data.username is the email
+    user = await service.get_user_by_email(
+        db, email=form_data.username
+    )  # form_data.username is the email
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -70,10 +71,11 @@ async def login_for_access_token(
     access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
+
 @router.get("/users", response_model=List[user_schema.User], tags=["Admin"])
 async def read_all_users(
     db: AsyncSession = Depends(get_db),
-    current_admin_user: user_schema.User = Depends(get_current_active_admin_user)
+    current_admin_user: user_schema.User = Depends(get_current_active_admin_user),
 ):
     """
     Retrieve all users. Access is restricted to admin users.
@@ -81,10 +83,9 @@ async def read_all_users(
     users = await service.get_all_users(db)
     return users
 
+
 @router.get("/users/me", response_model=user_schema.User)
-async def read_users_me(
-    current_user: user_schema.User = Depends(get_current_active_user)
-):
+async def read_users_me(current_user: user_schema.User = Depends(get_current_active_user)):
     """
     Get the profile for the currently logged-in user.
 
@@ -103,7 +104,7 @@ async def change_password(
     request: Request,
     password_data: user_schema.PasswordChange,
     db: AsyncSession = Depends(get_db),
-    current_user: user_schema.User = Depends(get_current_active_user)
+    current_user: user_schema.User = Depends(get_current_active_user),
 ) -> Any:
     """
     Change the password for the currently logged-in user.
@@ -116,16 +117,12 @@ async def change_password(
     db_user = await service.get_user_by_email(db, email=current_user.email)
 
     if not db_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     # Verify the current password
     if not verify_password(password_data.current_password, db_user.hashed_password):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Current password is incorrect"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect"
         )
 
     # Update with the new password
@@ -139,7 +136,7 @@ async def change_password(
 async def forgot_password(
     request: Request,
     forgot_data: user_schema.ForgotPasswordRequest,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ) -> Any:
     """
     Request a password reset email.
@@ -153,7 +150,9 @@ async def forgot_password(
 
     # Always return success to prevent email enumeration attacks
     if not user:
-        return {"message": "If an account with that email exists, a password reset link has been sent."}
+        return {
+            "message": "If an account with that email exists, a password reset link has been sent."
+        }
 
     # Generate password reset token
     reset_token = create_password_reset_token(email=user.email)
@@ -194,7 +193,7 @@ Portfolio Tracker Team
             to_emails=[user.email],
             subject="Password Reset Request - Portfolio Tracker",
             body=email_body,
-            html_body=html_body
+            html_body=html_body,
         )
     except Exception:
         # Log the error but don't expose it to the user
@@ -208,7 +207,7 @@ Portfolio Tracker Team
 async def reset_password(
     request: Request,
     reset_data: user_schema.ResetPasswordRequest,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ) -> Any:
     """
     Reset password using a valid reset token.
@@ -223,22 +222,18 @@ async def reset_password(
     if not email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired password reset token"
+            detail="Invalid or expired password reset token",
         )
 
     # Get the user
     user = await service.get_user_by_email(db, email=email)
 
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     if not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User account is inactive"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="User account is inactive"
         )
 
     # Update the password

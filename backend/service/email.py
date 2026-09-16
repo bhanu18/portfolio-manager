@@ -62,11 +62,13 @@ class EmailService:
             }
 
         except smtplib.SMTPAuthenticationError:
-            raise Exception("SMTP Authentication failed. Please check your email credentials.")
+            raise Exception(
+                "SMTP Authentication failed. Please check your email credentials."
+            ) from None
         except smtplib.SMTPException as e:
-            raise Exception(f"SMTP error occurred: {e!s}")
+            raise Exception(f"SMTP error occurred: {e!s}") from e
         except Exception as e:
-            raise Exception(f"Failed to send email: {e!s}")
+            raise Exception(f"Failed to send email: {e!s}") from e
 
 
 # Create a singleton instance

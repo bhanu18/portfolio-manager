@@ -138,7 +138,7 @@ async def import_csv_to_db():
         print("Preparing trade records...")
         trades_to_insert = []
 
-        for index, row in df.iterrows():
+        for _index, row in df.iterrows():
             purchase_price = row["Purchase Price"]
 
             symbol = row["Symbol"]

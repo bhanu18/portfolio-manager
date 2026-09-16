@@ -56,7 +56,7 @@ async def client() -> AsyncGenerator[TestClient, Any]:
     """
     engine = create_async_engine(settings.TEST_DATABASE_URL)
 
-    async with engine.connect() as connection, connection.begin() as transaction:
+    async with engine.connect() as connection, connection.begin():
         TestingSessionLocal = sessionmaker(
             bind=connection, class_=AsyncSession, expire_on_commit=False
         )

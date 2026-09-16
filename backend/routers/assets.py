@@ -90,7 +90,7 @@ async def create_asset(asset_in: AssetCreate, db: AsyncSession = Depends(get_db)
         raise HTTPException(
             status_code=400,
             detail=f"Error fetching data from yfinance for symbol '{asset_in.symbol}': {e}",
-        )
+        ) from e
 
     # 2. Prepare the complete asset data dictionary
     asset_data = asset_in.model_dump()

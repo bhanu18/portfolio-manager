@@ -20,7 +20,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # add your model's MetaData object here
-from db.orm_models import Base
+from db.orm_models import Base  # noqa: E402 - needs sys.path set above
 
 # for 'autogenerate' support
 # from myapp import mymodel

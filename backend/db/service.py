@@ -39,7 +39,9 @@ async def get_all_assets(db: AsyncSession, skip: int = 0, limit: int = 100):
     return result.scalars().all()
 
 
-async def get_asset_by_symbol_or_id(db: AsyncSession, symbol: str = None, asset_id: int = None):
+async def get_asset_by_symbol_or_id(
+    db: AsyncSession, symbol: str | None = None, asset_id: int | None = None
+):
     """Fetches an asset by either its symbol or ID."""
     if symbol:
         return await get_asset_by_symbol(db, symbol)
@@ -47,24 +49,6 @@ async def get_asset_by_symbol_or_id(db: AsyncSession, symbol: str = None, asset_
         return await get_asset_by_id(db, asset_id)
     else:
         raise ValueError("Either 'symbol' or 'asset_id' must be provided.")
-
-
-async def get_asset_by_id(db: AsyncSession, asset_id: int):
-    """
-    Fetches a single global asset by its ID. No ownership is checked.
-    """
-    query = select(orm_models.Asset).where(orm_models.Asset.id == asset_id)
-    result = await db.execute(query)
-    return result.scalar_one_or_none()
-
-
-async def get_asset_by_symbol(db: AsyncSession, symbol: str):
-    """
-    Fetches a single global asset by its symbol. No ownership is checked.
-    """
-    query = select(orm_models.Asset).where(orm_models.Asset.symbol == symbol)
-    result = await db.execute(query)
-    return result.scalar_one_or_none()
 
 
 async def create_asset(db: AsyncSession, asset_data: dict):

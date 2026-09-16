@@ -42,9 +42,9 @@ async def get_current_user(
         if email is None:
             raise credentials_exception
         token_data = TokenData(email=email)
-    except JWTError:
+    except JWTError as e:
         # This catches errors like expired tokens or invalid signatures
-        raise credentials_exception
+        raise credentials_exception from e
 
     # Fetch the user from the database
     user = await service.get_user_by_email(db, email=token_data.email)

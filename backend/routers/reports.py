@@ -93,7 +93,7 @@ async def get_portfolio_valuation_by_symbol(
             raise HTTPException(
                 status_code=503,
                 detail=f"Exchange rate from {asset_currency} to USD is unavailable.",
-            )
+            ) from None
 
     # 6. Get the CURRENT exchange rate to convert from USD to the TARGET currency
     try:
@@ -102,7 +102,7 @@ async def get_portfolio_valuation_by_symbol(
         raise HTTPException(
             status_code=503,
             detail=f"Exchange rates for {target_currency} are currently unavailable.",
-        )
+        ) from None
 
     # 7. Calculate final values
     current_value_target = current_value_usd * usd_to_target_rate
@@ -236,7 +236,7 @@ async def get_portfolio_performance(
             }
             fx_cache[cache_key] = result
             return result
-        except:
+        except Exception:
             result = {
                 "rate": 1.0,
                 "actual_date": date.strftime("%Y-%m-%d"),
@@ -252,7 +252,7 @@ async def get_portfolio_performance(
             return 1.0
         try:
             return c.get_rate(from_currency, to_currency)
-        except:
+        except Exception:
             return 1.0
 
     print(
@@ -277,7 +277,7 @@ async def get_portfolio_performance(
 
     # Calculate current exchange rates
     currencies_in_portfolio = set()
-    for asset_id in holdings_by_asset.keys():
+    for asset_id in holdings_by_asset:
         if holdings_by_asset[asset_id]["quantity"] > 0:
             for trade in holdings_by_asset[asset_id]["buys"]:
                 currencies_in_portfolio.add(trade.currency)
@@ -293,7 +293,7 @@ async def get_portfolio_performance(
     holdings_analysis = []
     total_cost_basis_base = 0
     total_current_value_base = 0
-    total_dividends_base = 0
+    total_dividends_base = 0.0  # TODO: dividends are not calculated yet (always 0)
 
     by_currency = defaultdict(
         lambda: {"value_base": 0, "cost_basis_base": 0, "local_gain": 0, "fx_gain": 0}
@@ -363,7 +363,7 @@ async def get_portfolio_performance(
             if not current_price:
                 hist = ticker.history(period="1d")
                 current_price = hist["Close"].iloc[-1] if not hist.empty else 0
-        except:
+        except Exception:
             current_price = asset.current_price if asset.current_price else 0
 
         if current_price == 0:
@@ -492,7 +492,7 @@ async def get_portfolio_performance(
                 end_price = bench_hist["Close"].iloc[-1]
                 benchmark_return = ((end_price / start_price) - 1) * 100
                 alpha = total_unrealized_gain_loss_pct - benchmark_return
-    except:
+    except Exception:
         print("Failed to fetch benchmark data")
 
     # Format by_currency for output

@@ -1,4 +1,6 @@
 {
+    "python.defaultInterpreterPath": "${workspaceFolder}/backend/venv/bin/python",
+    "python.testing.cwd": "${workspaceFolder}/backend",
     "python.testing.pytestArgs": [
         "tests"
     ],

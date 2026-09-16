@@ -8,12 +8,13 @@ from datetime import datetime
 import yfinance as yf
 
 # Add path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from db.session import AsyncSessionLocal
 from db.orm_models import Asset, Trade
 
-CSV_FILE_PATH = "C:/Users/user/Downloads/portfolio_history.csv"
+# Usage: python scripts/import_csv.py path/to/portfolio_history.csv
+CSV_FILE_PATH = sys.argv[1] if len(sys.argv) > 1 else "portfolio_history.csv"
 
 
 async def fetch_existing_assets_map(db: AsyncSession, symbols: list) -> dict:

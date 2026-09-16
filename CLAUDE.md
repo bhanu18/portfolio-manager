@@ -1,6 +1,6 @@
-# CLAUDE.md — Portfolio Dashboard
+# CLAUDE.md — Portfolio Manager
 
-Monorepo created 2026-09-16 by merging two projects:
+Monorepo created 2026-09-16 by merging two projects (folder was `portfolio_dashboard`, renamed to `portfolio-manager` the same day):
 - `backend/`  ← was `portfolio_tracker` (git history preserved; this repo's history is that repo's, remote `github.com/bhanu18/portfolio_tracker`)
 - `frontend/` ← was `portfolio_manager` (no prior git history)
 Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio_manager` as backups.

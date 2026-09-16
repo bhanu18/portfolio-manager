@@ -1,4 +1,4 @@
-# Portfolio Dashboard
+# Portfolio Manager
 
 [![CI](https://github.com/bhanu18/portfolio_tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/bhanu18/portfolio_tracker/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
@@ -50,7 +50,7 @@ flowchart LR
 ```
 
 ```
-portfolio_dashboard/
+portfolio-manager/
 ├── backend/          FastAPI, SQLAlchemy (aiomysql), Alembic, pytest
 ├── frontend/         Vite, React 18, TypeScript, React Query, axios
 ├── docs/             feature specs (reports, permissions, scoring)

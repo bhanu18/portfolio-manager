@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Portfolio Dashboard API",
+    title="Portfolio Manager API",
     description=(
         "Multi-currency stock & crypto portfolio tracker. "
         "Manage assets and trades, share portfolios through groups, "

@@ -1,7 +1,7 @@
 [project]
-name = "portfolio-dashboard-api"
+name = "portfolio-manager-api"
 version = "1.0.0"
-description = "FastAPI backend for Portfolio Dashboard"
+description = "FastAPI backend for Portfolio Manager"
 requires-python = ">=3.12,<3.13"
 
 # ---------------------------------------------------------------- ruff

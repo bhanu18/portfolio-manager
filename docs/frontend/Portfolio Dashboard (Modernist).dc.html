@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/modernist-461cfbf2-6fe9-430b-a80b-8dc16ec8e976/styles.css">
+<script src="_ds/modernist-461cfbf2-6fe9-430b-a80b-8dc16ec8e976/_ds_bundle.js"></script>
+<style>body{margin:0;background:#d9d7d6}.dv-turn{padding:44px 48px 36px;border-bottom:2px solid color-mix(in srgb,#201e1d 40%,transparent)}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 6px}.dv-tid{font:800 10px/1 Archivo,system-ui;padding:4px 7px;background:#201e1d;color:#f3f2f2;text-decoration:none}.dv-tname{font:800 13px/1.2 Archivo,system-ui;color:#201e1d}.dv-sub{font:400 12.5px/1.55 Archivo,system-ui;color:#605d5d;margin:0 0 24px;max-width:780px}.dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:10px}.dv-oid{font:800 10.5px/1 Archivo,system-ui;padding:4px 7px;background:#eae9e9;color:#201e1d;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:9px;font:400 11.5px/1.3 Archivo,system-ui;color:#605d5d}.dv-card{max-width:100%;overflow:hidden;box-shadow:0 12px 32px color-mix(in srgb,#2d2b2b 22%,transparent)}.dv-opt:target .dv-oid{background:#ec3013;color:#f3f2f2}.dv-next{margin:26px 0 0;font:400 12px/1.6 Archivo,system-ui;color:#605d5d}.fig{font-variant-numeric:tabular-nums;font-family:Archivo,system-ui}@keyframes sk{0%,100%{opacity:.45}50%{opacity:.9}}@keyframes spin{to{transform:rotate(360deg)}}</style></helmet>
+
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">States</span></div>
+<p class="dv-sub">Skeletons are flat neutral blocks on the grid — no rounded pills, no shimmer gradients, just a pulse in value. The slow performance run gets a red-ruled status band across the full width.</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="2a">
+<div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Overview loading · positions in, analysis running</div>
+<div class="dv-card" style="width:1280px;background:var(--color-bg);color:var(--color-text)">
+  <div class="nav"><span class="nav-brand">PORTFOLIO</span>
+    <a href="#2a" aria-current="page">Overview</a><a href="#2a">Holdings</a><a href="#2a">Trades</a><a href="#2a">Assets</a>
+    <span class="tag tag-neutral fig" style="margin-left:var(--space-4)">USD</span><span class="tag tag-neutral fig">SPY</span>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-8);border-bottom:2px solid var(--color-divider);background:var(--color-accent-100)">
+    <span style="width:14px;height:14px;border:2px solid var(--color-accent-300);border-top-color:var(--color-accent);border-radius:50%;animation:spin .7s linear infinite;flex:none"></span>
+    <span style="flex:1;font-size:13px;font-weight:600">Calculating historical FX rates…</span>
+    <span class="fig" style="font-size:12px;color:var(--color-accent-800)">14s elapsed · usually 10–60s</span>
+    <button class="btn btn-secondary" type="button">Cancel</button>
+  </div>
+
+  <div style="padding:var(--space-8);display:flex;flex-direction:column;gap:var(--space-8)">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-8)">
+      <div>
+        <h6 style="margin:0 0 var(--space-2);color:var(--color-neutral-700)">Total portfolio value</h6>
+        <div style="display:flex;align-items:baseline;gap:var(--space-4)">
+          <span class="fig" style="font-size:60px;font-weight:800;line-height:1;letter-spacing:-.025em">$160,786.30</span>
+          <span style="width:112px;height:26px;background:var(--color-neutral-300);animation:sk 1.4s ease-in-out infinite"></span>
+        </div>
+        <div style="margin-top:var(--space-3);display:flex;align-items:center;gap:var(--space-2);font-size:13.5px;color:var(--color-neutral-700)">
+          <span class="fig">$128,440.22 invested</span><span>·</span>
+          <span style="width:140px;height:12px;background:var(--color-neutral-300);animation:sk 1.4s ease-in-out infinite"></span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--space-4);padding:var(--space-4);border:2px solid var(--color-divider)">
+        <div style="width:48px;height:48px;background:var(--color-neutral-300);animation:sk 1.4s ease-in-out infinite"></div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+          <div style="width:150px;height:13px;background:var(--color-neutral-300);animation:sk 1.4s ease-in-out infinite"></div>
+          <div style="width:230px;height:11px;background:var(--color-neutral-200);animation:sk 1.4s ease-in-out infinite"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);border-top:2px solid var(--color-divider);border-bottom:2px solid var(--color-divider)">
+      <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+        <div style="padding:var(--space-4) var(--space-4) var(--space-4) 0;border-left:2px solid var(--color-divider);padding-left:var(--space-4)">
+          <h6 style="margin:0;color:var(--color-neutral-700)">{{ k.label }}</h6>
+          <div style="margin-top:var(--space-3);width:124px;height:28px;background:var(--color-neutral-300);animation:sk 1.4s ease-in-out infinite"></div>
+          <div style="margin-top:var(--space-3);width:164px;height:11px;background:var(--color-neutral-200);animation:sk 1.4s ease-in-out infinite"></div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 336px;gap:var(--space-8);align-items:start">
+      <div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:var(--space-2)">
+          <h4 style="margin:0">Holdings</h4>
+          <span style="font-size:12.5px;color:var(--color-neutral-700)">7 positions · returns pending</span>
+        </div>
+        <table class="table">
+          <thead><tr>
+            <th>Asset</th><th style="text-align:right">Value</th><th style="width:150px">Weight</th>
+            <th style="text-align:right">Return</th><th style="text-align:right">Grade</th>
+          </tr></thead>
+          <tbody>
+            <sc-for list="{{ holdings }}" as="h" hint-placeholder-count="8">
+              <tr>
+                <td>
+                  <div style="display:flex;align-items:baseline;gap:var(--space-2)">
+                    <span class="fig" style="font-weight:800;white-space:nowrap">{{ h.ticker }}</span>
+                    <span style="font-size:12.5px;color:var(--color-neutral-700);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ h.name }}</span>
+                  </div>
+                  <div class="fig" style="margin-top:2px;font-size:11.5px;color:var(--color-neutral-700)">{{ h.position }}</div>
+                </td>
+                <td class="fig" style="text-align:right;white-space:nowrap">{{ h.value }}</td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:var(--space-2)">
+                    <div style="flex:1;height:6px;background:var(--color-neutral-200)"><div style="height:6px;background:{{ h.barColor }};width:{{ h.barWidth }}"></div></div>
+                    <span class="fig" style="font-size:11.5px;color:var(--color-neutral-700);width:42px;text-align:right">{{ h.weight }}</span>
+                  </div>
+                </td>
+                <td style="text-align:right"><span style="display:inline-block;width:64px;height:13px;background:var(--color-neutral-300);animation:sk 1.4s ease-in-out infinite"></span></td>
+                <td style="text-align:right"><span style="display:inline-block;width:26px;height:19px;background:var(--color-neutral-300);animation:sk 1.4s ease-in-out infinite"></span></td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div>
+          <h4 style="margin:0 0 var(--space-3)">Allocation</h4>
+          <div style="display:flex;height:10px">
+            <sc-for list="{{ allocation }}" as="a" hint-placeholder-count="4">
+              <div style="background:{{ a.color }};width:{{ a.width }}"></div>
+            </sc-for>
+          </div>
+          <div style="margin-top:var(--space-3)">
+            <sc-for list="{{ allocation }}" as="a" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) 0;border-bottom:1px solid var(--color-divider)">
+                <span style="width:9px;height:9px;background:{{ a.color }};flex:none"></span>
+                <span style="flex:1;font-size:13px;text-transform:uppercase;letter-spacing:.04em">{{ a.label }}</span>
+                <span class="fig" style="font-size:12.5px;color:var(--color-neutral-700)">{{ a.value }}</span>
+                <span class="fig" style="font-size:12.5px;font-weight:800;width:48px;text-align:right">{{ a.pct }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div>
+          <h4 style="margin:0 0 var(--space-1)">Movers</h4>
+          <p style="font-size:12px;color:var(--color-neutral-700);margin:0 0 var(--space-3)">Waiting on the performance run</p>
+          <sc-for list="{{ skeletonRows }}" as="s" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) 0;border-bottom:1px solid var(--color-divider)">
+              <span style="width:58px;height:12px;background:var(--color-neutral-300);animation:sk 1.4s ease-in-out infinite"></span>
+              <span style="flex:1;height:6px;background:var(--color-neutral-200)"></span>
+              <span style="width:48px;height:12px;background:var(--color-neutral-300);animation:sk 1.4s ease-in-out infinite"></span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="2b">
+<div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Overview empty · no trades recorded</div>
+<div class="dv-card" style="width:1280px;background:var(--color-bg);color:var(--color-text)">
+  <div class="nav"><span class="nav-brand">PORTFOLIO</span>
+    <a href="#2b" aria-current="page">Overview</a><a href="#2b">Holdings</a><a href="#2b">Trades</a><a href="#2b">Assets</a>
+    <span class="tag tag-neutral fig" style="margin-left:var(--space-4)">USD</span>
+  </div>
+  <div style="padding:var(--space-8);display:flex;flex-direction:column;gap:var(--space-8)">
+    <div>
+      <h6 style="margin:0 0 var(--space-2);color:var(--color-neutral-700)">Total portfolio value</h6>
+      <span class="fig" style="font-size:60px;font-weight:800;line-height:1;letter-spacing:-.025em;color:var(--color-neutral-700)">$0.00</span>
+      <div style="margin-top:var(--space-3);font-size:13.5px;color:var(--color-neutral-700)">Nothing invested yet</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);border-top:2px solid var(--color-divider);border-bottom:2px solid var(--color-divider)">
+      <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+        <div style="padding:var(--space-4);border-left:2px solid var(--color-divider)">
+          <h6 style="margin:0;color:var(--color-neutral-700)">{{ k.label }}</h6>
+          <div class="fig" style="margin-top:var(--space-2);font-size:28px;font-weight:800;line-height:1;color:var(--color-neutral-700)">—</div>
+          <div style="margin-top:var(--space-2);font-size:12.5px;color:var(--color-neutral-700)">Needs at least one trade</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="border:2px solid var(--color-divider);padding:var(--space-8);display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:var(--space-8);align-items:center">
+      <div>
+        <h2 style="margin:0 0 var(--space-3)">Record your first trade</h2>
+        <p style="font-size:14px;color:var(--color-neutral-800);max-width:460px;margin:0 0 var(--space-6);text-wrap:pretty">Positions, returns and risk grades are all derived from your trade history. Add a buy and the overview fills in immediately.</p>
+        <div style="display:flex;gap:var(--space-2)">
+          <button class="btn btn-primary" type="button">+ New trade</button>
+          <button class="btn btn-secondary" type="button">Browse assets</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:var(--space-2);height:120px">
+        <span style="width:22px;height:46%;background:var(--color-neutral-300)"></span>
+        <span style="width:22px;height:78%;background:var(--color-neutral-400)"></span>
+        <span style="width:22px;height:30%;background:var(--color-neutral-300)"></span>
+        <span style="width:22px;height:100%;background:var(--color-accent)"></span>
+      </div>
+    </div>
+    <div style="font-size:12.5px;color:var(--color-neutral-700)">Group <strong>Household</strong> · base currency USD · benchmark SPY</div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="2c">
+<div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a>Asset view loading · scoring pending</div>
+<div class="dv-card" style="width:900px;background:var(--color-bg);color:var(--color-text)">
+  <div style="padding:var(--space-6) var(--space-8) 0">
+    <div style="font-size:12.5px;color:var(--color-neutral-700);margin-bottom:var(--space-6)">Holdings / <strong>NVDA</strong></div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-6)">
+      <div>
+        <div style="display:flex;align-items:center;gap:var(--space-3)">
+          <span class="fig" style="font-size:38px;font-weight:800;line-height:1;letter-spacing:-.02em">NVDA</span>
+          <span class="tag tag-neutral">STOCK</span>
+          <span style="width:110px;height:20px;background:var(--color-neutral-300);animation:sk 1.4s ease-in-out infinite"></span>
+        </div>
+        <div style="margin-top:var(--space-2);font-size:13.5px;color:var(--color-neutral-700)">NVIDIA Corporation · NASDAQ · USD</div>
+      </div>
+      <div style="display:flex;gap:var(--space-2)">
+        <button class="btn btn-secondary" type="button">Edit</button>
+        <button class="btn btn-primary" type="button">+ New trade</button>
+      </div>
+    </div>
+  </div>
+  <div style="padding:var(--space-8);display:flex;flex-direction:column;gap:var(--space-8)">
+    <div>
+      <h6 style="margin:0 0 var(--space-2);color:var(--color-neutral-700)">Market value</h6>
+      <div style="display:flex;align-items:baseline;gap:var(--space-4)">
+        <span class="fig" style="font-size:48px;font-weight:800;line-height:1;letter-spacing:-.02em">$21,844.80</span>
+        <span style="width:200px;height:20px;background:var(--color-neutral-300);animation:sk 1.4s ease-in-out infinite"></span>
+      </div>
+      <div style="margin-top:var(--space-6);display:flex;flex-direction:column;gap:var(--space-3)">
+        <sc-for list="{{ basisBars }}" as="b" hint-placeholder-count="2">
+          <div style="display:flex;align-items:center;gap:var(--space-4)">
+            <span style="width:100px;font-size:13px;color:var(--color-neutral-800)">{{ b.label }}</span>
+            <div style="flex:1;height:24px;background:var(--color-neutral-200)"><div style="height:24px;background:var(--color-neutral-300);width:{{ b.width }};animation:sk 1.4s ease-in-out infinite"></div></div>
+            <span style="width:96px;height:14px;background:var(--color-neutral-300);animation:sk 1.4s ease-in-out infinite"></span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);border-top:2px solid var(--color-divider);border-bottom:2px solid var(--color-divider)">
+      <sc-for list="{{ lightDetailStats }}" as="s" hint-placeholder-count="6">
+        <div style="padding:var(--space-4);border-left:2px solid var(--color-divider)">
+          <h6 style="margin:0;color:var(--color-neutral-700)">{{ s.label }}</h6>
+          <div style="margin-top:var(--space-3);width:108px;height:22px;background:var(--color-neutral-300);animation:sk 1.4s ease-in-out infinite"></div>
+          <div style="margin-top:var(--space-3);width:150px;height:11px;background:var(--color-neutral-200);animation:sk 1.4s ease-in-out infinite"></div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:var(--space-4);padding:var(--space-4);border:2px solid var(--color-divider);background:var(--color-accent-100)">
+      <span style="width:16px;height:16px;border:2px solid var(--color-accent-300);border-top-color:var(--color-accent);border-radius:50%;animation:spin .7s linear infinite;flex:none"></span>
+      <div style="flex:1">
+        <div style="font-weight:800;font-size:14px">Scoring this holding</div>
+        <div style="font-size:12.5px;color:var(--color-accent-800)">Pulling a year of daily prices to compute Sharpe, drawdown and beta — about 20 seconds.</div>
+      </div>
+      <button class="btn btn-secondary" type="button">Skip</button>
+    </div>
+
+    <div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between">
+        <h4 style="margin:0">Trades</h4>
+        <span class="fig" style="font-size:12.5px;color:var(--color-neutral-700)">Net 120 units · avg cost $94.75</span>
+      </div>
+      <table class="table" style="margin-top:var(--space-2)">
+        <thead><tr><th>Type</th><th>Date</th><th style="text-align:right">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Cost</th><th></th></tr></thead>
+        <tbody>
+          <sc-for list="{{ detailTrades }}" as="t" hint-placeholder-count="4">
+            <tr>
+              <td><span class="tag {{ t.tagClass }}">{{ t.typeLabel }}</span></td>
+              <td class="fig" style="white-space:nowrap">{{ t.date }}</td>
+              <td class="fig" style="text-align:right">{{ t.qty }}</td>
+              <td class="fig" style="text-align:right">{{ t.price }}</td>
+              <td class="fig" style="text-align:right">{{ t.cost }}</td>
+              <td style="text-align:right;white-space:nowrap"><button class="btn btn-ghost" type="button">Edit</button><button class="btn btn-ghost" type="button">Delete</button></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="2d">
+<div class="dv-olabel"><a class="dv-oid" href="#2d">2d</a>Asset view empty · asset exists, not held</div>
+<div class="dv-card" style="width:900px;background:var(--color-bg);color:var(--color-text)">
+  <div style="padding:var(--space-6) var(--space-8) 0">
+    <div style="font-size:12.5px;color:var(--color-neutral-700);margin-bottom:var(--space-6)">Holdings / <strong>TSM</strong></div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-6)">
+      <div>
+        <div style="display:flex;align-items:center;gap:var(--space-3)">
+          <span class="fig" style="font-size:38px;font-weight:800;line-height:1;letter-spacing:-.02em">TSM</span>
+          <span class="tag tag-neutral">STOCK</span>
+          <span class="tag tag-outline">NOT HELD</span>
+        </div>
+        <div style="margin-top:var(--space-2);font-size:13.5px;color:var(--color-neutral-700)">Taiwan Semiconductor Mfg. Co. · NYSE · USD</div>
+      </div>
+      <div style="display:flex;gap:var(--space-2)">
+        <button class="btn btn-secondary" type="button">Edit</button>
+        <button class="btn btn-primary" type="button">+ New trade</button>
+      </div>
+    </div>
+  </div>
+  <div style="padding:var(--space-8);display:flex;flex-direction:column;gap:var(--space-8)">
+    <div>
+      <h6 style="margin:0 0 var(--space-2);color:var(--color-neutral-700)">Market value</h6>
+      <div style="display:flex;align-items:baseline;gap:var(--space-4)">
+        <span class="fig" style="font-size:48px;font-weight:800;line-height:1;letter-spacing:-.02em;color:var(--color-neutral-700)">$0.00</span>
+        <span style="font-size:14px;color:var(--color-neutral-700)">You hold no units of this asset</span>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);border-top:2px solid var(--color-divider);border-bottom:2px solid var(--color-divider)">
+      <div style="padding:var(--space-4);border-left:2px solid var(--color-divider)">
+        <h6 style="margin:0;color:var(--color-neutral-700)">Last price</h6>
+        <div class="fig" style="margin-top:var(--space-2);font-size:24px;font-weight:800;line-height:1">$248.60</div>
+        <div style="margin-top:var(--space-2);font-size:12.5px;color:var(--color-neutral-700)">Updated 15 Sep, 16:32</div>
+      </div>
+      <div style="padding:var(--space-4);border-left:2px solid var(--color-divider)">
+        <h6 style="margin:0;color:var(--color-neutral-700)">Position</h6>
+        <div class="fig" style="margin-top:var(--space-2);font-size:24px;font-weight:800;line-height:1;color:var(--color-neutral-700)">—</div>
+        <div style="margin-top:var(--space-2);font-size:12.5px;color:var(--color-neutral-700)">No trades recorded</div>
+      </div>
+      <div style="padding:var(--space-4);border-left:2px solid var(--color-divider)">
+        <h6 style="margin:0;color:var(--color-neutral-700)">Average cost</h6>
+        <div class="fig" style="margin-top:var(--space-2);font-size:24px;font-weight:800;line-height:1;color:var(--color-neutral-700)">—</div>
+        <div style="margin-top:var(--space-2);font-size:12.5px;color:var(--color-neutral-700)">Set by your first buy</div>
+      </div>
+    </div>
+    <div style="border:2px solid var(--color-divider);padding:var(--space-8)">
+      <h3 style="margin:0 0 var(--space-2)">No trades for TSM yet</h3>
+      <p style="font-size:14px;color:var(--color-neutral-800);max-width:420px;margin:0 0 var(--space-6);text-wrap:pretty">Record a buy to start tracking cost basis, return and a risk grade for this asset.</p>
+      <button class="btn btn-primary" type="button">+ New trade</button>
+    </div>
+    <div style="font-size:12.5px;color:var(--color-neutral-700)">Risk scoring needs at least 30 trading days of holding history.</div>
+  </div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "add the error / timeout state" · "show the new-trade dialog" · "make <a class="dv-oid" href="#1a">1a</a> the one to build"</p>
+</section>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Overview + asset detail, on Modernist</span></div>
+<p class="dv-sub">Archivo throughout, zero radius, 2px rules doing the organising, everything flush left. Modernist is a mono red-on-ground system, so gain/loss can't be a green/red pair: gains stay in ink, losses take the accent, and every figure carries an explicit + or − so the read never depends on colour. Allocation and weight bars use the neutral ramp; red is kept for losses, the primary action and the one poster statement.</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Overview · top nav, numbers-first</div>
+<div class="dv-card" style="width:1280px;background:var(--color-bg);color:var(--color-text)">
+  <div class="nav"><span class="nav-brand">PORTFOLIO</span>
+    <a href="#1a" aria-current="page">Overview</a><a href="#1a">Holdings</a><a href="#1a">Trades</a><a href="#1a">Assets</a>
+    <span class="tag tag-neutral fig" style="margin-left:var(--space-4)">USD</span><span class="tag tag-neutral fig">SPY</span>
+    <button class="btn btn-secondary" type="button">Refresh prices</button>
+  </div>
+
+  <div style="padding:var(--space-8);display:flex;flex-direction:column;gap:var(--space-8)">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-8)">
+      <div>
+        <h6 style="margin:0 0 var(--space-2);color:var(--color-neutral-700)">Total portfolio value</h6>
+        <div style="display:flex;align-items:baseline;gap:var(--space-4)">
+          <span class="fig" style="font-size:60px;font-weight:800;line-height:1;letter-spacing:-.025em">$160,786.30</span>
+          <span class="fig" style="font-size:22px;font-weight:800;line-height:1">+25.18%</span>
+        </div>
+        <div class="fig" style="margin-top:var(--space-3);font-size:13.5px;color:var(--color-neutral-700)">+$32,346.08 unrealized · $128,440.22 invested · $1,566.36 dividends</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--space-4);padding:var(--space-4);border:2px solid var(--color-divider)">
+        <div class="fig" style="font-size:44px;font-weight:800;line-height:.9">B</div>
+        <div style="border-left:2px solid var(--color-divider);padding-left:var(--space-4)">
+          <div style="font-weight:800;font-size:14px">Portfolio grade · <span class="fig">71/100</span></div>
+          <div style="font-size:12.5px;color:var(--color-neutral-800);max-width:240px;text-wrap:pretty">Strong returns, but volatility and drawdown run above benchmark.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);border-top:2px solid var(--color-divider);border-bottom:2px solid var(--color-divider)">
+      <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+        <div style="padding:var(--space-4);border-left:2px solid var(--color-divider)">
+          <h6 style="margin:0;color:var(--color-neutral-700)">{{ k.label }}</h6>
+          <div class="fig" style="margin-top:var(--space-2);font-size:28px;font-weight:800;line-height:1;color:{{ k.color }}">{{ k.value }}</div>
+          <div style="margin-top:var(--space-2);font-size:12.5px;color:var(--color-neutral-700)">{{ k.note }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 336px;gap:var(--space-8);align-items:start">
+      <div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:var(--space-2)">
+          <h4 style="margin:0">Holdings</h4>
+          <span style="font-size:12.5px;color:var(--color-neutral-700)">7 positions · sorted by weight</span>
+        </div>
+        <table class="table">
+          <thead><tr>
+            <th>Asset</th><th style="text-align:right">Value</th><th style="width:150px">Weight</th>
+            <th style="text-align:right">Return</th><th style="text-align:right">Grade</th>
+          </tr></thead>
+          <tbody>
+            <sc-for list="{{ holdings }}" as="h" hint-placeholder-count="8">
+              <tr>
+                <td>
+                  <div style="display:flex;align-items:baseline;gap:var(--space-2)">
+                    <span class="fig" style="font-weight:800;white-space:nowrap">{{ h.ticker }}</span>
+                    <span style="font-size:12.5px;color:var(--color-neutral-700);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ h.name }}</span>
+                  </div>
+                  <div class="fig" style="margin-top:2px;font-size:11.5px;color:var(--color-neutral-700)">{{ h.position }}</div>
+                </td>
+                <td class="fig" style="text-align:right;white-space:nowrap">{{ h.value }}</td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:var(--space-2)">
+                    <div style="flex:1;height:6px;background:var(--color-neutral-200)"><div style="height:6px;background:{{ h.barColor }};width:{{ h.barWidth }}"></div></div>
+                    <span class="fig" style="font-size:11.5px;color:var(--color-neutral-700);width:42px;text-align:right">{{ h.weight }}</span>
+                  </div>
+                </td>
+                <td class="fig" style="text-align:right;font-weight:800;white-space:nowrap;color:{{ h.retColor }}">{{ h.totalRet }}</td>
+                <td style="text-align:right"><span class="tag {{ h.gradeClass }}" style="font-weight:800">{{ h.grade }}</span></td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:var(--space-8)">
+        <div>
+          <h4 style="margin:0 0 var(--space-3)">Allocation</h4>
+          <div style="display:flex;height:10px">
+            <sc-for list="{{ allocation }}" as="a" hint-placeholder-count="4">
+              <div style="background:{{ a.color }};width:{{ a.width }}"></div>
+            </sc-for>
+          </div>
+          <div style="margin-top:var(--space-3)">
+            <sc-for list="{{ allocation }}" as="a" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) 0;border-bottom:1px solid var(--color-divider)">
+                <span style="width:9px;height:9px;background:{{ a.color }};flex:none"></span>
+                <span style="flex:1;font-size:13px;text-transform:uppercase;letter-spacing:.04em">{{ a.label }}</span>
+                <span class="fig" style="font-size:12.5px;color:var(--color-neutral-700)">{{ a.value }}</span>
+                <span class="fig" style="font-size:12.5px;font-weight:800;width:48px;text-align:right">{{ a.pct }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div>
+          <h4 style="margin:0 0 var(--space-1)">Movers</h4>
+          <p style="font-size:12px;color:var(--color-neutral-700);margin:0 0 var(--space-3)">Total return, all time</p>
+          <sc-for list="{{ movers }}" as="m" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) 0;border-bottom:1px solid var(--color-divider)">
+              <span class="fig" style="font-weight:800;font-size:12.5px;width:66px">{{ m.ticker }}</span>
+              <div style="flex:1;height:6px;background:var(--color-neutral-200);position:relative">
+                <span style="position:absolute;top:-2px;bottom:-2px;left:50%;width:2px;background:var(--color-neutral-400)"></span>
+                <div style="position:absolute;top:0;height:6px;background:{{ m.color }};left:{{ m.left }};width:{{ m.width }}"></div>
+              </div>
+              <span class="fig" style="font-weight:800;font-size:12.5px;width:64px;text-align:right;color:{{ m.color }}">{{ m.value }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:var(--space-3)">
+            <h4 style="margin:0">Recent activity</h4>
+            <a href="#1a" style="font-size:12.5px;font-weight:800">All trades</a>
+          </div>
+          <sc-for list="{{ activity }}" as="t" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) 0;border-bottom:1px solid var(--color-divider)">
+              <span class="tag {{ t.tagClass }}" style="flex:none">{{ t.typeLabel }}</span>
+              <span class="fig" style="font-weight:800;font-size:12.5px;width:62px">{{ t.ticker }}</span>
+              <span class="fig" style="flex:1;font-size:11.5px;color:var(--color-neutral-700)">{{ t.detail }}</span>
+              <span class="fig" style="font-size:11.5px;color:var(--color-neutral-700);white-space:nowrap">{{ t.date }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Overview · sidebar nav, dense command centre</div>
+<div class="dv-card" style="width:1280px;background:var(--color-bg);color:var(--color-text);display:grid;grid-template-columns:216px minmax(0,1fr)">
+  <aside style="border-right:2px solid var(--color-divider);padding:var(--space-4) 0;display:flex;flex-direction:column;gap:var(--space-6)">
+    <div style="padding:0 var(--space-4);font-family:var(--font-heading);font-weight:800;font-size:18px">PORTFOLIO</div>
+    <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="3">
+      <div>
+        <h6 style="margin:0 0 var(--space-2);padding:0 var(--space-4);color:var(--color-neutral-700)">{{ g.title }}</h6>
+        <sc-for list="{{ g.items }}" as="i" hint-placeholder-count="3">
+          <div style="padding:6px var(--space-4);font-size:13.5px;font-weight:{{ i.weight }};border-left:3px solid {{ i.bar }};color:{{ i.fg }}">{{ i.label }}</div>
+        </sc-for>
+      </div>
+    </sc-for>
+    <div style="margin-top:auto;padding:var(--space-3) var(--space-4) 0;border-top:2px solid var(--color-divider)">
+      <div style="font-size:13px;font-weight:800">Alex Chen</div>
+      <div style="font-size:11.5px;color:var(--color-neutral-700)">Admin</div>
+    </div>
+  </aside>
+
+  <div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);padding:var(--space-3) var(--space-6);border-bottom:2px solid var(--color-divider)">
+      <div style="display:flex;align-items:baseline;gap:var(--space-3)">
+        <h4 style="margin:0">Overview</h4>
+        <span class="fig" style="font-size:12px;color:var(--color-neutral-700)">Priced 15 Sep 2026, 16:32</span>
+      </div>
+      <div style="display:flex;gap:var(--space-2);align-items:center">
+        <span class="tag tag-neutral fig">BASE USD</span><span class="tag tag-neutral fig">VS SPY</span>
+        <button class="btn btn-primary" type="button">Refresh prices</button>
+      </div>
+    </div>
+
+    <div style="padding:var(--space-6);display:grid;grid-template-columns:minmax(0,1fr) 272px;gap:var(--space-6);align-items:start">
+      <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);border-top:2px solid var(--color-divider);border-bottom:2px solid var(--color-divider)">
+          <div style="padding:var(--space-3) var(--space-4);border-left:2px solid var(--color-divider)">
+            <h6 style="margin:0;color:var(--color-neutral-700)">Market value</h6>
+            <div class="fig" style="margin-top:var(--space-2);font-size:32px;font-weight:800;line-height:1">$160,786</div>
+            <div class="fig" style="margin-top:var(--space-2);font-size:12px;color:var(--color-neutral-700)">Cost $128,440.22</div>
+          </div>
+          <div style="padding:var(--space-3) var(--space-4);border-left:2px solid var(--color-divider)">
+            <h6 style="margin:0;color:var(--color-neutral-700)">Unrealized P&amp;L</h6>
+            <div class="fig" style="margin-top:var(--space-2);font-size:32px;font-weight:800;line-height:1">+$32,346</div>
+            <div class="fig" style="margin-top:var(--space-2);font-size:12px;color:var(--color-neutral-700)">+25.18% on cost</div>
+          </div>
+          <div style="padding:var(--space-3) var(--space-4);border-left:2px solid var(--color-divider)">
+            <h6 style="margin:0;color:var(--color-neutral-700)">Alpha vs SPY</h6>
+            <div class="fig" style="margin-top:var(--space-2);font-size:32px;font-weight:800;line-height:1">+10.56%</div>
+            <div class="fig" style="margin-top:var(--space-2);font-size:12px;color:var(--color-neutral-700)">SPY returned 14.62%</div>
+          </div>
+        </div>
+
+        <div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:var(--space-2)">
+            <h4 style="margin:0">Holdings</h4>
+            <span style="font-size:11.5px;color:var(--color-neutral-700)">Return splits into price (local) and currency (FX)</span>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="table" style="font-size:13px">
+              <thead><tr>
+                <sc-for list="{{ denseCols }}" as="c" hint-placeholder-count="8">
+                  <th style="text-align:{{ c.align }};padding:var(--space-2) 6px;white-space:nowrap">{{ c.label }}</th>
+                </sc-for>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{ holdings }}" as="h" hint-placeholder-count="8">
+                  <tr>
+                    <td class="fig" style="padding:var(--space-2) 6px;font-weight:800;white-space:nowrap">{{ h.ticker }}</td>
+                    <td style="padding:var(--space-2) 6px;font-size:12px;color:var(--color-neutral-700);max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ h.name }}</td>
+                    <td class="fig" style="padding:var(--space-2) 6px;text-align:right;white-space:nowrap">{{ h.qty }}</td>
+                    <td class="fig" style="padding:var(--space-2) 6px;text-align:right;white-space:nowrap">{{ h.value }}</td>
+                    <td class="fig" style="padding:var(--space-2) 6px;text-align:right;white-space:nowrap;color:{{ h.retColor }}">{{ h.pl }}</td>
+                    <td class="fig" style="padding:var(--space-2) 6px;text-align:right;font-weight:800;white-space:nowrap;color:{{ h.retColor }}">{{ h.totalRet }}</td>
+                    <td class="fig" style="padding:var(--space-2) 6px;text-align:right;white-space:nowrap;color:var(--color-neutral-700)">{{ h.split }}</td>
+                    <td style="padding:var(--space-2) 6px;text-align:right;white-space:nowrap">
+                      <span style="display:inline-flex;align-items:center;gap:6px;justify-content:flex-end">
+                        <span class="fig" style="font-size:11.5px;color:var(--color-neutral-700)">{{ h.weight }}</span>
+                        <span class="tag {{ h.gradeClass }}" style="font-weight:800">{{ h.grade }}</span>
+                      </span>
+                    </td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+          <div class="fig" style="padding:var(--space-2) 6px;font-size:11.5px;color:var(--color-neutral-700)">Totals $160,786.30 · +$32,346.08 · +25.18%</div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div style="border:2px solid var(--color-divider);padding:var(--space-3)">
+          <div style="display:flex;align-items:center;gap:var(--space-3);padding-bottom:var(--space-3);border-bottom:2px solid var(--color-divider)">
+            <div class="fig" style="font-size:34px;font-weight:800;line-height:.9">B</div>
+            <div><div style="font-weight:800;font-size:13px">71 / 100</div><div style="font-size:11.5px;color:var(--color-neutral-700)">1-year lookback</div></div>
+          </div>
+          <div style="padding-top:var(--space-2)">
+            <sc-for list="{{ riskRows }}" as="r" hint-placeholder-count="4">
+              <div style="display:flex;align-items:baseline;gap:var(--space-2);padding:5px 0;border-bottom:1px solid var(--color-divider)">
+                <span style="flex:1;font-size:12.5px">{{ r.label }}</span>
+                <span class="fig" style="font-size:12.5px;font-weight:800">{{ r.value }}</span>
+                <span style="font-size:11px;width:62px;text-align:right;color:{{ r.readColor }}">{{ r.read }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div>
+          <h4 style="margin:0 0 var(--space-3)">Allocation</h4>
+          <sc-for list="{{ allocation }}" as="a" hint-placeholder-count="4">
+            <div style="padding:var(--space-2) 0;border-bottom:1px solid var(--color-divider)">
+              <div style="display:flex;align-items:baseline;gap:var(--space-2);margin-bottom:5px">
+                <span style="flex:1;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em">{{ a.label }}</span>
+                <span class="fig" style="font-size:12px;font-weight:800">{{ a.pct }}</span>
+              </div>
+              <div style="height:5px;background:var(--color-neutral-200)"><div style="height:5px;background:{{ a.color }};width:{{ a.width }}"></div></div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div>
+          <h4 style="margin:0 0 var(--space-3)">Currency exposure</h4>
+          <sc-for list="{{ currencies }}" as="c" hint-placeholder-count="3">
+            <div style="display:flex;align-items:baseline;gap:var(--space-2);padding:var(--space-2) 0;border-bottom:1px solid var(--color-divider)">
+              <span class="fig" style="font-weight:800;font-size:12px;width:34px">{{ c.code }}</span>
+              <span style="flex:1;font-size:12px;color:var(--color-neutral-700)">{{ c.weight }} of book</span>
+              <span class="fig" style="font-size:12px;font-weight:800;color:{{ c.color }}">{{ c.fx }} FX</span>
+            </div>
+          </sc-for>
+          <div style="margin-top:var(--space-2);font-size:11.5px;color:var(--color-neutral-800)">Currency cost you <strong style="color:var(--color-accent-700)">$1,204.77</strong> this period — 0.94% of return.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Overview · sidebar nav, most minimal</div>
+<div class="dv-card" style="width:1280px;background:var(--color-bg);color:var(--color-text);display:grid;grid-template-columns:204px minmax(0,1fr)">
+  <aside style="border-right:2px solid var(--color-divider);padding:var(--space-6) 0;display:flex;flex-direction:column;gap:var(--space-8)">
+    <div style="padding:0 var(--space-6);font-family:var(--font-heading);font-weight:800;font-size:18px">PORTFOLIO</div>
+    <div>
+      <sc-for list="{{ lightNav }}" as="i" hint-placeholder-count="5">
+        <div style="padding:7px var(--space-6);font-size:13.5px;font-weight:{{ i.weight }};color:{{ i.fg }};border-left:3px solid {{ i.bar }}">{{ i.label }}</div>
+      </sc-for>
+    </div>
+    <div class="fig" style="margin-top:auto;padding:0 var(--space-6);font-size:11.5px;color:var(--color-neutral-700);line-height:1.6">Priced 15 Sep 2026<br>16:32 · base USD</div>
+  </aside>
+
+  <div style="padding:var(--space-8) 44px 52px;display:flex;flex-direction:column;gap:44px">
+    <div>
+      <h6 style="margin:0 0 var(--space-3);color:var(--color-neutral-700)">Total value</h6>
+      <div class="fig" style="font-size:72px;font-weight:800;line-height:.95;letter-spacing:-.03em">$160,786.30</div>
+      <div class="hr" style="margin:var(--space-6) 0"></div>
+      <p style="font-size:16px;color:var(--color-neutral-900);max-width:680px;margin:0;text-wrap:pretty">Up <strong>$32,346.08</strong> — <strong>25.18%</strong> on cost, and <strong>10.56% ahead of SPY</strong>. Almost all of that is price rather than currency: FX took <strong style="color:var(--color-accent-700)">$1,204.77</strong> off the top. Risk grade <strong>B</strong> — good returns, a bumpier ride than the benchmark.</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);border-top:2px solid var(--color-divider);border-bottom:2px solid var(--color-divider)">
+      <sc-for list="{{ lightStats }}" as="s" hint-placeholder-count="4">
+        <div style="padding:var(--space-6) var(--space-4) var(--space-6) 0">
+          <h6 style="margin:0;color:var(--color-neutral-700)">{{ s.label }}</h6>
+          <div class="fig" style="margin-top:var(--space-3);font-size:26px;font-weight:800;line-height:1">{{ s.value }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:var(--space-2)">
+        <h3 style="margin:0">Holdings</h3>
+        <span style="font-size:13px;color:var(--color-neutral-700)">7 positions</span>
+      </div>
+      <table class="table" style="font-size:15px">
+        <thead><tr>
+          <th>Asset</th><th style="text-align:right">Value</th><th style="text-align:right">Weight</th>
+          <th style="text-align:right">Return</th><th style="text-align:right">Grade</th>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ holdings }}" as="h" hint-placeholder-count="8">
+            <tr>
+              <td style="padding:var(--space-3) var(--space-2)">
+                <div style="display:flex;align-items:baseline;gap:var(--space-3)">
+                  <span class="fig" style="font-weight:800;white-space:nowrap">{{ h.ticker }}</span>
+                  <span style="font-size:13px;color:var(--color-neutral-700)">{{ h.name }}</span>
+                </div>
+                <div class="fig" style="margin-top:2px;font-size:12px;color:var(--color-neutral-700)">{{ h.position }}</div>
+              </td>
+              <td class="fig" style="padding:var(--space-3) var(--space-2);text-align:right;white-space:nowrap">{{ h.value }}</td>
+              <td class="fig" style="padding:var(--space-3) var(--space-2);text-align:right;color:var(--color-neutral-700);white-space:nowrap">{{ h.weight }}</td>
+              <td class="fig" style="padding:var(--space-3) var(--space-2);text-align:right;font-weight:800;white-space:nowrap;color:{{ h.retColor }}">{{ h.totalRet }}</td>
+              <td class="fig" style="padding:var(--space-3) var(--space-2);text-align:right;font-weight:800;color:{{ h.gradeInk }}">{{ h.grade }}</td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px">
+      <div>
+        <h4 style="margin:0 0 var(--space-4)">Allocation</h4>
+        <sc-for list="{{ allocation }}" as="a" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;gap:var(--space-4);padding:var(--space-2) 0;border-bottom:1px solid var(--color-divider)">
+            <span style="width:68px;font-size:13.5px;text-transform:uppercase;letter-spacing:.04em">{{ a.label }}</span>
+            <div style="flex:1;height:4px;background:var(--color-neutral-200)"><div style="height:4px;background:var(--color-text);width:{{ a.width }}"></div></div>
+            <span class="fig" style="font-size:13px;font-weight:800;width:50px;text-align:right">{{ a.pct }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div>
+        <h4 style="margin:0 0 var(--space-4)">Recent activity</h4>
+        <sc-for list="{{ activity }}" as="t" hint-placeholder-count="4">
+          <div style="display:flex;align-items:baseline;gap:var(--space-3);padding:var(--space-2) 0;border-bottom:1px solid var(--color-divider)">
+            <span class="fig" style="font-size:12.5px;color:var(--color-neutral-700);width:52px">{{ t.date }}</span>
+            <span class="fig" style="font-weight:800;font-size:13.5px;width:62px">{{ t.ticker }}</span>
+            <span class="fig" style="flex:1;font-size:13px;color:var(--color-neutral-800)">{{ t.lightDetail }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1d">
+<div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Asset view · split panel, keeps your list + detail</div>
+<div class="dv-card" style="width:1280px;background:var(--color-bg);color:var(--color-text);display:grid;grid-template-columns:262px minmax(0,1fr)">
+  <aside style="border-right:2px solid var(--color-divider);display:flex;flex-direction:column">
+    <div style="padding:var(--space-4);border-bottom:2px solid var(--color-divider)">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:var(--space-3)">
+        <h5 style="margin:0">HOLDINGS</h5><span class="fig" style="font-size:11px;color:var(--color-neutral-700)">7</span>
+      </div>
+      <input class="input" type="text" placeholder="Search symbol…">
+    </div>
+    <sc-for list="{{ sidebarAssets }}" as="a" hint-placeholder-count="8">
+      <div style="display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-4);border-bottom:1px solid var(--color-divider);border-left:3px solid {{ a.bar }};background:{{ a.bg }}">
+        <div style="flex:1;min-width:0">
+          <div class="fig" style="font-weight:800;font-size:12.5px">{{ a.ticker }}</div>
+          <div style="font-size:11.5px;color:var(--color-neutral-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.name }}</div>
+        </div>
+        <div style="text-align:right;flex:none">
+          <div class="fig" style="font-size:12px">{{ a.value }}</div>
+          <div class="fig" style="font-size:11px;font-weight:800;color:{{ a.retColor }}">{{ a.ret }}</div>
+        </div>
+      </div>
+    </sc-for>
+  </aside>
+
+  <div>
+    <div style="padding:var(--space-6);border-bottom:2px solid var(--color-divider);display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-6)">
+      <div>
+        <div style="display:flex;align-items:center;gap:var(--space-3)">
+          <span class="fig" style="font-size:34px;font-weight:800;line-height:1;letter-spacing:-.02em">NVDA</span>
+          <span class="tag tag-neutral">STOCK</span><span class="tag tag-outline">LONG TERM</span>
+        </div>
+        <div style="margin-top:var(--space-2);font-size:13px;color:var(--color-neutral-700)">NVIDIA Corporation · NASDAQ · priced in USD</div>
+      </div>
+      <div style="display:flex;gap:var(--space-2)">
+        <button class="btn btn-secondary" type="button">Edit asset</button>
+        <button class="btn btn-primary" type="button">+ New trade</button>
+      </div>
+    </div>
+
+    <div style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-6)">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);border-top:2px solid var(--color-divider);border-bottom:2px solid var(--color-divider)">
+        <sc-for list="{{ detailStats }}" as="s" hint-placeholder-count="4">
+          <div style="padding:var(--space-3) var(--space-4);border-left:2px solid var(--color-divider)">
+            <h6 style="margin:0;color:var(--color-neutral-700)">{{ s.label }}</h6>
+            <div class="fig" style="margin-top:var(--space-2);font-size:26px;font-weight:800;line-height:1;color:{{ s.color }}">{{ s.value }}</div>
+            <div class="fig" style="margin-top:var(--space-2);font-size:12px;color:var(--color-neutral-700)">{{ s.note }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:var(--space-6);align-items:start">
+        <div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:var(--space-2)">
+            <h4 style="margin:0">Trades</h4>
+            <span class="fig" style="font-size:11.5px;color:var(--color-neutral-700)">4 · avg cost $94.75</span>
+          </div>
+          <table class="table">
+            <thead><tr><th>Type</th><th>Date</th><th style="text-align:right">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Cost</th><th></th></tr></thead>
+            <tbody>
+              <sc-for list="{{ detailTrades }}" as="t" hint-placeholder-count="4">
+                <tr>
+                  <td><span class="tag {{ t.tagClass }}">{{ t.typeLabel }}</span></td>
+                  <td class="fig" style="white-space:nowrap">{{ t.date }}</td>
+                  <td class="fig" style="text-align:right">{{ t.qty }}</td>
+                  <td class="fig" style="text-align:right">{{ t.price }}</td>
+                  <td class="fig" style="text-align:right">{{ t.cost }}</td>
+                  <td style="text-align:right;white-space:nowrap"><button class="btn btn-ghost" type="button">Edit</button><button class="btn btn-ghost" type="button">Delete</button></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+          <div class="fig" style="padding:var(--space-2);font-size:12px;color:var(--color-neutral-700);display:flex;justify-content:space-between">
+            <span>Net position 120 units · held 916 days</span><span>$11,370.40 invested</span>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+          <div style="border:2px solid var(--color-divider);padding:var(--space-4)">
+            <div style="display:flex;align-items:center;gap:var(--space-4);padding-bottom:var(--space-3);border-bottom:2px solid var(--color-divider)">
+              <div class="fig" style="font-size:40px;font-weight:800;line-height:.9">B</div>
+              <div>
+                <div style="font-weight:800;font-size:14px">Risk score <span class="fig">76 / 100</span></div>
+                <div class="fig" style="font-size:11.5px;color:var(--color-neutral-700)">1-year lookback · 251 trading days</div>
+              </div>
+            </div>
+            <sc-for list="{{ metricRows }}" as="m" hint-placeholder-count="5">
+              <div style="padding:var(--space-2) 0;border-bottom:1px solid var(--color-divider)">
+                <div style="display:flex;align-items:baseline;gap:var(--space-2)">
+                  <span style="flex:1;font-size:12.5px;font-weight:600">{{ m.label }}</span>
+                  <span class="fig" style="font-size:13px;font-weight:800;color:{{ m.color }}">{{ m.value }}</span>
+                </div>
+                <div style="margin-top:2px;font-size:11.5px;color:var(--color-neutral-700);text-wrap:pretty">{{ m.read }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div>
+            <h4 style="margin:0 0 var(--space-3)">Where the return came from</h4>
+            <sc-for list="{{ attribution }}" as="a" hint-placeholder-count="3">
+              <div style="padding:var(--space-2) 0;border-bottom:1px solid var(--color-divider)">
+                <div style="display:flex;align-items:baseline;gap:var(--space-2);margin-bottom:5px">
+                  <span style="flex:1;font-size:12.5px">{{ a.label }}</span>
+                  <span class="fig" style="font-size:12.5px;font-weight:800;color:{{ a.color }}">{{ a.value }}</span>
+                </div>
+                <div style="height:5px;background:var(--color-neutral-200)"><div style="height:5px;background:{{ a.color }};width:{{ a.width }}"></div></div>
+              </div>
+            </sc-for>
+            <div class="fig" style="margin-top:var(--space-2);font-size:11.5px;color:var(--color-neutral-700)">USD-priced, so no currency effect. Annualised 31.08% over 2.5 years.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1e">
+<div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Asset view · single focused page</div>
+<div class="dv-card" style="width:900px;background:var(--color-bg);color:var(--color-text)">
+  <div style="padding:var(--space-6) var(--space-8) 0">
+    <div style="font-size:12.5px;color:var(--color-neutral-700);margin-bottom:var(--space-6)">Holdings / <strong>NVDA</strong></div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-6)">
+      <div>
+        <div style="display:flex;align-items:center;gap:var(--space-3)">
+          <span class="fig" style="font-size:38px;font-weight:800;line-height:1;letter-spacing:-.02em">NVDA</span>
+          <span class="tag tag-neutral">STOCK</span><span class="tag tag-outline">LONG TERM · 916 D</span>
+        </div>
+        <div style="margin-top:var(--space-2);font-size:13.5px;color:var(--color-neutral-700)">NVIDIA Corporation · NASDAQ · USD</div>
+      </div>
+      <div style="display:flex;gap:var(--space-2)">
+        <button class="btn btn-secondary" type="button">Edit</button>
+        <button class="btn btn-primary" type="button">+ New trade</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:var(--space-8);display:flex;flex-direction:column;gap:var(--space-8)">
+    <div>
+      <h6 style="margin:0 0 var(--space-2);color:var(--color-neutral-700)">Market value</h6>
+      <div style="display:flex;align-items:baseline;gap:var(--space-4);flex-wrap:wrap">
+        <span class="fig" style="font-size:52px;font-weight:800;line-height:1;letter-spacing:-.025em">$21,844.80</span>
+        <span class="fig" style="font-size:18px;font-weight:800">+$10,474.40 · +92.14%</span>
+      </div>
+      <div style="margin-top:var(--space-6);display:flex;flex-direction:column;gap:var(--space-3)">
+        <sc-for list="{{ basisBars }}" as="b" hint-placeholder-count="2">
+          <div style="display:flex;align-items:center;gap:var(--space-4)">
+            <span style="width:100px;font-size:13px;color:var(--color-neutral-800)">{{ b.label }}</span>
+            <div style="flex:1;height:26px;background:var(--color-neutral-200)"><div style="height:26px;background:{{ b.color }};width:{{ b.width }}"></div></div>
+            <span class="fig" style="font-size:13.5px;font-weight:800;width:104px;text-align:right">{{ b.value }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);border-top:2px solid var(--color-divider);border-bottom:2px solid var(--color-divider)">
+      <sc-for list="{{ lightDetailStats }}" as="s" hint-placeholder-count="6">
+        <div style="padding:var(--space-4);border-left:2px solid var(--color-divider)">
+          <h6 style="margin:0;color:var(--color-neutral-700)">{{ s.label }}</h6>
+          <div class="fig" style="margin-top:var(--space-2);font-size:22px;font-weight:800;line-height:1;color:{{ s.color }}">{{ s.value }}</div>
+          <div style="margin-top:var(--space-2);font-size:12.5px;color:var(--color-neutral-700);text-wrap:pretty">{{ s.note }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div>
+      <div style="display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-2)">
+        <h3 style="margin:0">Risk grade B</h3>
+        <span class="fig" style="font-size:13px;color:var(--color-neutral-700)">76 / 100 · 1-year lookback</span>
+      </div>
+      <p style="font-size:14px;color:var(--color-neutral-900);max-width:620px;margin:0 0 var(--space-6);text-wrap:pretty">Returns are excellent and beat the benchmark, but this position swings roughly 1.6× the market and has seen an 18% peak-to-trough fall in the last year.</p>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:0 var(--space-8)">
+        <sc-for list="{{ metricRows }}" as="m" hint-placeholder-count="5">
+          <div style="display:flex;align-items:baseline;gap:var(--space-3);padding:var(--space-2) 0;border-bottom:1px solid var(--color-divider)">
+            <span style="flex:1;font-size:13px">{{ m.label }}</span>
+            <span class="fig" style="font-size:13px;font-weight:800">{{ m.value }}</span>
+            <span style="font-size:11.5px;width:72px;text-align:right;color:{{ m.lightRead }}">{{ m.read6 }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between">
+        <h3 style="margin:0">Trades</h3>
+        <span class="fig" style="font-size:12.5px;color:var(--color-neutral-700)">Net 120 units · avg cost $94.75</span>
+      </div>
+      <table class="table" style="margin-top:var(--space-2)">
+        <thead><tr><th>Type</th><th>Date</th><th style="text-align:right">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Cost</th><th></th></tr></thead>
+        <tbody>
+          <sc-for list="{{ detailTrades }}" as="t" hint-placeholder-count="4">
+            <tr>
+              <td><span class="tag {{ t.tagClass }}">{{ t.typeLabel }}</span></td>
+              <td class="fig" style="white-space:nowrap">{{ t.date }}</td>
+              <td class="fig" style="text-align:right">{{ t.qty }}</td>
+              <td class="fig" style="text-align:right">{{ t.price }}</td>
+              <td class="fig" style="text-align:right">{{ t.cost }}</td>
+              <td style="text-align:right;white-space:nowrap"><button class="btn btn-ghost" type="button">Edit</button><button class="btn btn-ghost" type="button">Delete</button></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "give <a class="dv-oid" href="#1a">1a</a> the red poster banner on the grade" · "put a grayscale hero photograph in <a class="dv-oid" href="#1c">1c</a>" · "build <a class="dv-oid" href="#1d">1d</a> out as a prototype"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:1000}}">
+class Component extends DCLogic {
+  renderVals() {
+    const ink = "var(--color-text)";
+    const loss = "var(--color-accent-700)";
+    const flat = "var(--color-neutral-700)";
+    const n900 = "var(--color-neutral-900)", n700 = "var(--color-neutral-700)",
+          n500 = "var(--color-neutral-500)", n300 = "var(--color-neutral-300)";
+
+    const raw = [
+      { ticker: "BTC-USD", name: "Bitcoin USD", qty: "0.42", position: "0.42 units @ $114,000", value: "$47,880.00", pl: "+$18,144", weight: "29.8%", w: 29.78, totalRet: "+61.03%", split: "61.0 / 0.0", grade: "C", up: true },
+      { ticker: "VOO", name: "Vanguard S&P 500", qty: "60", position: "60 units @ $561.90", value: "$33,714.00", pl: "+$2,814", weight: "21.0%", w: 20.97, totalRet: "+9.11%", split: "9.1 / 0.0", grade: "A", up: true },
+      { ticker: "NVDA", name: "NVIDIA Corporation", qty: "120", position: "120 units @ $182.04", value: "$21,844.80", pl: "+$10,474", weight: "13.6%", w: 13.59, totalRet: "+92.14%", split: "92.1 / 0.0", grade: "B", up: true },
+      { ticker: "AAPL", name: "Apple Inc.", qty: "85", position: "85 units @ $231.98", value: "$19,720.10", pl: "+$2,280", weight: "12.3%", w: 12.26, totalRet: "+13.07%", split: "13.1 / 0.0", grade: "B", up: true },
+      { ticker: "CASH", name: "USD cash balance", qty: "18,000", position: "Uninvested balance", value: "$18,000.00", pl: "—", weight: "11.2%", w: 11.19, totalRet: "0.00%", split: "0.0 / 0.0", grade: "—", up: null },
+      { ticker: "MSFT", name: "Microsoft Corporation", qty: "40", position: "40 units @ $410.31", value: "$16,412.40", pl: "+$3,667", weight: "10.2%", w: 10.21, totalRet: "+28.77%", split: "28.8 / 0.0", grade: "A", up: true },
+      { ticker: "VNM", name: "VanEck Vietnam ETF", qty: "250", position: "250 units @ $12.86", value: "$3,215.00", pl: "−$455", weight: "2.0%", w: 2.00, totalRet: "−12.40%", split: "−9.9 / −2.5", grade: "F", up: false },
+      { ticker: "PTT.BK", name: "PTT Public Co Ltd", qty: "3,000", position: "3,000 units @ ฿32.00", value: "$2,753.64", pl: "−$181", weight: "1.7%", w: 1.71, totalRet: "−6.18%", split: "1.4 / −7.6", grade: "D", up: false }
+    ];
+    const gradeClass = { A: "tag-neutral", B: "tag-neutral", C: "tag-neutral", D: "tag-accent", F: "tag-accent" };
+    const holdings = raw.map(h => ({
+      ...h,
+      barWidth: (h.w / 29.78 * 100).toFixed(1) + "%",
+      barColor: h.up === null ? n300 : h.up ? n900 : "var(--color-accent)",
+      retColor: h.up === null ? flat : h.up ? ink : loss,
+      gradeClass: gradeClass[h.grade] || "tag-neutral",
+      gradeInk: h.grade === "D" || h.grade === "F" ? loss : ink
+    }));
+
+    const tradeTag = t => t === "buy" ? "tag-neutral" : "tag-accent";
+    const activity = [
+      { ticker: "NVDA", type: "buy", detail: "Bought 40 @ $158.30", lightDetail: "Bought 40 units at $158.30", date: "27 Jun" },
+      { ticker: "BTC-USD", type: "buy", detail: "Bought 0.12 @ $92,400", lightDetail: "Bought 0.12 units at $92,400.00", date: "14 Jun" },
+      { ticker: "VNM", type: "sell", detail: "Sold 100 @ $13.42", lightDetail: "Sold 100 units at $13.42", date: "02 Jun" },
+      { ticker: "VOO", type: "buy", detail: "Bought 10 @ $548.10", lightDetail: "Bought 10 units at $548.10", date: "19 May" }
+    ].map(t => ({ ...t, typeLabel: t.type.toUpperCase(), tagClass: tradeTag(t.type) }));
+
+    const detailTrades = [
+      { type: "buy", date: "14 Mar 2024", qty: "50", price: "$62.40", cost: "$3,120.00" },
+      { type: "buy", date: "02 Aug 2024", qty: "40", price: "$109.85", cost: "$4,394.00" },
+      { type: "sell", date: "19 Jan 2025", qty: "10", price: "$132.10", cost: "−$1,321.00" },
+      { type: "buy", date: "27 Jun 2025", qty: "40", price: "$158.30", cost: "$6,332.00" }
+    ].map(t => ({ ...t, typeLabel: t.type.toUpperCase(), tagClass: tradeTag(t.type) }));
+
+    const metricRows = [
+      { label: "Sharpe ratio", value: "1.24", read: "Good — you're paid well for the risk taken.", read6: "Good", color: ink, lightRead: n700 },
+      { label: "Volatility", value: "41.6%", read: "High — roughly twice the S&P 500.", read6: "High", color: loss, lightRead: loss },
+      { label: "Max drawdown", value: "−18.4%", read: "Largest peak-to-trough fall in the last year.", read6: "Watch", color: loss, lightRead: loss },
+      { label: "Beta", value: "1.62", read: "Moves ~1.6× the market, up and down.", read6: "Aggressive", color: loss, lightRead: loss },
+      { label: "Alpha", value: "+18.9%", read: "Return beyond what its risk level implies.", read6: "Strong", color: ink, lightRead: n700 }
+    ];
+
+    const navItem = (label, active) => ({
+      label, weight: active ? 800 : 400,
+      fg: active ? ink : n700,
+      bar: active ? "var(--color-accent)" : "transparent"
+    });
+
+    return {
+      holdings, activity, detailTrades, metricRows,
+      skeletonRows: [1, 2, 3, 4, 5],
+      kpis: [
+        { label: "Unrealized P&L", value: "+$32,346", note: "+25.18% on $128,440 invested", color: ink },
+        { label: "Alpha vs SPY", value: "+10.56%", note: "Benchmark returned 14.62%", color: ink },
+        { label: "Currency effect", value: "−$1,205", note: "FX trimmed 0.94% of return", color: loss },
+        { label: "Dividends", value: "$1,566", note: "Received to date", color: ink }
+      ],
+      allocation: [
+        { label: "stock", pct: "36.1%", value: "$57,977", width: "36.06%", color: n900 },
+        { label: "crypto", pct: "29.8%", value: "$47,880", width: "29.78%", color: n700 },
+        { label: "etf", pct: "23.0%", value: "$36,929", width: "22.97%", color: n500 },
+        { label: "cash", pct: "11.2%", value: "$18,000", width: "11.19%", color: n300 }
+      ],
+      movers: [
+        { ticker: "NVDA", value: "+92.1%", color: n900, left: "50%", width: "46%" },
+        { ticker: "BTC-USD", value: "+61.0%", color: n900, left: "50%", width: "31%" },
+        { ticker: "MSFT", value: "+28.8%", color: n900, left: "50%", width: "14%" },
+        { ticker: "VOO", value: "+9.1%", color: n900, left: "50%", width: "5%" },
+        { ticker: "PTT.BK", value: "−6.2%", color: "var(--color-accent)", left: "47%", width: "3%" },
+        { ticker: "VNM", value: "−12.4%", color: "var(--color-accent)", left: "44%", width: "6%" }
+      ],
+      navGroups: [
+        { title: "Portfolio", items: [navItem("Overview", true), navItem("Holdings"), navItem("Trades")] },
+        { title: "Analysis", items: [navItem("Performance"), navItem("Valuation"), navItem("Risk scores")] },
+        { title: "Admin", items: [navItem("Assets"), navItem("Groups")] }
+      ],
+      lightNav: [navItem("Overview", true), navItem("Holdings"), navItem("Trades"), navItem("Performance"), navItem("Assets")],
+      denseCols: [
+        { label: "Ticker", align: "left" }, { label: "Name", align: "left" }, { label: "Qty", align: "right" },
+        { label: "Value", align: "right" }, { label: "P&L", align: "right" }, { label: "Return", align: "right" },
+        { label: "Local / FX", align: "right" }, { label: "Weight · grade", align: "right" }
+      ],
+      riskRows: [
+        { label: "Sharpe ratio", value: "0.94", read: "Fair", readColor: n700 },
+        { label: "Volatility", value: "22.8%", read: "High", readColor: loss },
+        { label: "Max drawdown", value: "−14.1%", read: "Watch", readColor: loss },
+        { label: "Beta vs SPY", value: "1.18", read: "Aggressive", readColor: loss }
+      ],
+      currencies: [
+        { code: "USD", weight: "96.3%", fx: "0.00%", color: n700 },
+        { code: "THB", weight: "1.7%", fx: "−7.62%", color: loss },
+        { code: "VND", weight: "2.0%", fx: "−2.54%", color: loss }
+      ],
+      lightStats: [
+        { label: "Invested", value: "$128,440.22" },
+        { label: "Unrealized P&L", value: "+$32,346.08" },
+        { label: "Alpha vs SPY", value: "+10.56%" },
+        { label: "Dividends", value: "$1,566.36" }
+      ],
+      sidebarAssets: raw.map(h => ({
+        ticker: h.ticker, name: h.name, value: h.value, ret: h.totalRet,
+        retColor: h.up === null ? flat : h.up ? ink : loss,
+        bg: h.ticker === "NVDA" ? "var(--color-surface)" : "transparent",
+        bar: h.ticker === "NVDA" ? "var(--color-accent)" : "transparent"
+      })),
+      detailStats: [
+        { label: "Market value", value: "$21,844.80", note: "120 units @ $182.04", color: ink },
+        { label: "Cost basis", value: "$11,370.40", note: "Avg cost $94.75 / unit", color: ink },
+        { label: "Unrealized P&L", value: "+$10,474.40", note: "+92.14% total return", color: ink },
+        { label: "Annualised", value: "+31.08%", note: "Held 916 days · long term", color: ink }
+      ],
+      attribution: [
+        { label: "Price movement (local)", value: "+92.14%", width: "100%", color: n900 },
+        { label: "Currency (FX)", value: "0.00%", width: "1%", color: n500 },
+        { label: "Dividends", value: "+0.42%", width: "4%", color: n700 }
+      ],
+      lightDetailStats: [
+        { label: "Position", value: "120 units", note: "Net of 4 trades since Mar 2024", color: ink },
+        { label: "Last price", value: "$182.04", note: "Updated 15 Sep, 16:32", color: ink },
+        { label: "Average cost", value: "$94.75", note: "Per unit, cost basis $11,370.40", color: ink },
+        { label: "Annualised return", value: "+31.08%", note: "Over a 916-day holding period", color: ink },
+        { label: "Weight in portfolio", value: "13.6%", note: "Third-largest position", color: ink },
+        { label: "Currency effect", value: "0.00%", note: "USD-priced, no FX exposure", color: n700 }
+      ],
+      basisBars: [
+        { label: "Cost basis", value: "$11,370.40", width: "52%", color: n300 },
+        { label: "Market value", value: "$21,844.80", width: "100%", color: n900 }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

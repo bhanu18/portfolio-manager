@@ -1,7 +1,7 @@
 # CLAUDE.md — Portfolio Manager
 
 Monorepo created 2026-09-16 by merging two projects (folder was `portfolio_dashboard`, renamed to `portfolio-manager` the same day):
-- `backend/`  ← was `portfolio_tracker` (git history preserved; this repo's history is that repo's, remote `github.com/bhanu18/portfolio_tracker`)
+- `backend/`  ← was `portfolio_tracker` (git history preserved; this repo's history is that repo's, remote `github.com/bhanu18/portfolio-manager`)
 - `frontend/` ← was `portfolio_manager` (no prior git history)
 Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio_manager` as backups.
 
@@ -61,4 +61,4 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
   - README screenshots placeholder (docs/screenshots/).
   - Alembic downgrade of b46451958cb3 fails; `datetime.utcnow()` (DTZ003 ignored) and `(str, Enum)` (UP042 ignored) to revisit.
   - `scripts/import_portfolio_history.py` needs openpyxl, which is not in requirements.
-  - Badge URLs point at github.com/bhanu18/portfolio_tracker — update if the repo is renamed.
+  - GitHub repo is bhanu18/portfolio-manager (renamed from portfolio_tracker); origin and badges updated.

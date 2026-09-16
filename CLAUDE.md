@@ -6,7 +6,7 @@ Monorepo created 2026-09-16 by merging two projects:
 Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio_manager` as backups.
 
 ## Stack
-- **Backend:** Python 3.10, FastAPI, async SQLAlchemy (aiomysql / Cloud SQL MySQL), Alembic migrations, JWT auth (OAuth2 password flow, roles `user`/`admin`, scoped group roles), yfinance + forex-python for prices/FX, SMTP email, slowapi rate limits. Deployed to Cloud Run (asia-southeast1) via Docker.
+- **Backend:** Python 3.10, FastAPI, async SQLAlchemy (aiomysql / Cloud SQL MySQL), Alembic migrations, JWT auth (OAuth2 password flow, roles `user`/`admin`, scoped group roles), yfinance + forex-python for prices/FX, SMTP email, slowapi rate limits. No deployment configured (old Cloud Run/Docker/Cloud Build files removed 2026-09-16 — starting fresh).
 - **Frontend:** Vite 5 + React 18 + TypeScript, react-router v6, @tanstack/react-query v5, axios. No UI lib — plain CSS in `src/styles/index.css`.
 
 ## Layout
@@ -33,6 +33,6 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 - Login is form-encoded (`username`=email), not JSON.
 - `/assets/{symbol}` and `/assets/{asset_id}` share a path shape — frontend uses numeric IDs.
 - CORS: allowed origins are hardcoded in `backend/main.py` (localhost:5173 + paulbespokesuits.com).
-- Deploy: `cloudbuild.yaml` lives at repo root and builds context `backend/`; `backend/deploy.sh` cd's into its own dir first. `backend/.dockerignore` applies (build context is backend/).
+- Deployment: none yet. Removed Dockerfile, .dockerignore, deploy.sh, cloudbuild.yaml, DEPLOY_README.md, GITHUB_DEPLOYMENT.md (recoverable from git history). `backend/main.py` still runs Alembic migrations on startup when DATABASE_URL is set.
 - Never commit `.env` files (root `.gitignore` covers backend + frontend).
 - `venv/` and `node_modules/` are not copied — recreate after cloning.

@@ -4,12 +4,11 @@ Multi-currency stock/crypto portfolio tracker — FastAPI backend + React/TypeSc
 
 ```
 portfolio_dashboard/
-├── backend/          FastAPI + SQLAlchemy (async MySQL), Alembic, Docker → Cloud Run
+├── backend/          FastAPI + SQLAlchemy (async MySQL), Alembic
 ├── frontend/         Vite + React 18 + TypeScript, React Query, axios
 ├── docs/
 │   ├── backend/      reports, scoring, permissions & roles
 │   └── frontend/     build context, changes, scoring UI guide, wireframes
-├── cloudbuild.yaml   Cloud Build → Cloud Run (builds backend/)
 └── CLAUDE.md
 ```
 
@@ -38,7 +37,7 @@ cd backend && pytest
 cd frontend && npm run typecheck
 ```
 
-## Deploy (backend)
-- CI: `cloudbuild.yaml` at repo root (build context `backend/`).
-- Manual: `./backend/deploy.sh <GCP_PROJECT_ID>`.
-- Frontend origin must be listed in `origins` in `backend/main.py` (CORS).
+## Deploy
+Not set up yet — deployment config was removed on 2026-09-16 to start fresh.
+
+Note: the frontend origin must be listed in `origins` in `backend/main.py` (CORS).

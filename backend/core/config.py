@@ -8,8 +8,14 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     SYNC_DATABASE_URL: str
     
+    DB_ECHO: bool = False  # log every SQL statement (noisy; dev debugging only)
+
     # --- Testing ---
-    TEST_DATABASE_URL: str
+    TEST_DATABASE_URL: str | None = None
+
+    # --- CORS ---
+    # Comma-separated list of allowed frontend origins
+    CORS_ORIGINS: str = "http://localhost:5173"
     
     # --- Security ---
     SECRET_KEY: str
@@ -26,7 +32,11 @@ class Settings(BaseSettings):
     EMAIL_FROM_NAME: str = "Portfolio Tracker"
 
     # This tells Pydantic to load the variables from a .env file
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
 # Create a single, importable instance of the settings
 settings = Settings()

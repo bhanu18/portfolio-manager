@@ -36,3 +36,8 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 - Deployment: none yet. Removed Dockerfile, .dockerignore, deploy.sh, cloudbuild.yaml, DEPLOY_README.md, GITHUB_DEPLOYMENT.md (recoverable from git history). `backend/main.py` still runs Alembic migrations on startup when DATABASE_URL is set.
 - Never commit `.env` files (root `.gitignore` covers backend + frontend).
 - `venv/` and `node_modules/` are not copied — recreate after cloning.
+
+## Direction (decided 2026-09-16)
+- Goal: **portfolio showcase** (public repo for job hunting) — polish, CI and a clean README matter.
+- Hosting: undecided, **local first**. DB: MySQL for now, Postgres possible once hosting is chosen — avoid MySQL-only SQL.
+- Next up, in order: (1) backend cleanup, (2) code quality + CI. Plan is in the chat; nothing built yet.

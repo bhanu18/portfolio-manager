@@ -24,7 +24,7 @@ router = APIRouter(tags=["Authentication"])
 limiter = Limiter(key_func=get_remote_address)
 
 
-@router.post("/register", response_model=user_schema.User)
+@router.post("/register", response_model=user_schema.User, status_code=201)
 @limiter.limit("3/hour")
 async def register_new_user(
     request: Request, user_in: user_schema.UserCreate, db: AsyncSession = Depends(get_db)

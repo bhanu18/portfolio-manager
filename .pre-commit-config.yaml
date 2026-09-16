@@ -15,10 +15,9 @@ repos:
     rev: v0.16.7
     hooks:
       - id: ruff-check
-        args: [--fix, --force-exclude]
+        args: [--fix]
         files: ^backend/
       - id: ruff-format
-        args: [--force-exclude]
         files: ^backend/
 
   - repo: local

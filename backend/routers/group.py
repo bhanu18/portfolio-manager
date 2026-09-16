@@ -1,17 +1,17 @@
+
 from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.dependencies import (
-    get_db,
-    get_current_active_user,
-    get_current_active_admin_user,
-    get_current_group_admin,
-)
 from db import service
+from db.dependencies import (
+    get_current_active_admin_user,
+    get_current_active_user,
+    get_current_group_admin,
+    get_db,
+)
+from db.orm_models import Group, GroupMemberRole
 from models import groups as group_schema
 from models import users as user_schema
-from db.orm_models import Group, UserGroupAssociation, GroupMemberRole
 
 router = APIRouter(prefix="/groups", tags=["Groups"])
 

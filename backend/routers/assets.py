@@ -1,15 +1,15 @@
-from fastapi import APIRouter, HTTPException, Depends, status
-import yfinance as yf
-from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
 import asyncio
+from datetime import datetime, timedelta
+
+import yfinance as yf
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import our new dependencies and functions
 import models.users as user_schema
-from models.asset import Asset, AssetCreate, AssetUpdate
-from db.dependencies import get_db, get_current_active_admin_user
 from db import service
+from db.dependencies import get_current_active_admin_user, get_db
+from models.asset import Asset, AssetCreate, AssetUpdate
 
 router = APIRouter(
     prefix="/assets",  # All routes in this router will start with /assets
@@ -18,7 +18,7 @@ router = APIRouter(
 )
 
 
-@router.get("/", response_model=List[Asset])
+@router.get("/", response_model=list[Asset])
 async def read_all_assets(
     skip: int = 0,
     limit: int = 100,

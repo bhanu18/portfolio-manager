@@ -1,14 +1,14 @@
-from db.session import AsyncSessionLocal
-from models import users as user_schema
-from db.orm_models import UserRole, GroupMemberRole, Group
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.config import settings
 from db import service
+from db.orm_models import Group, GroupMemberRole, UserRole
+from db.session import AsyncSessionLocal
 from models import users as user_schema
 from models.token import TokenData
-from core.config import settings
 
 # This object is what FastAPI uses to find the token in the request's header.
 # The tokenUrl points to your login endpoint.

@@ -1,23 +1,24 @@
 import asyncio
 import os
 import sys
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any
 
 import pytest_asyncio
 from alembic.config import Config
-from alembic import command
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+
+from alembic import command
 
 # --- Add project root to path ---
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 os.environ["TESTING"] = "1"
 
-from main import app
-from db.dependencies import get_db
-from db.orm_models import Base
 from core.config import settings
+from db.dependencies import get_db
+from main import app
 
 
 # This fixture creates a new event loop for the entire test session.
@@ -55,21 +56,20 @@ async def client() -> AsyncGenerator[TestClient, Any]:
     """
     engine = create_async_engine(settings.TEST_DATABASE_URL)
 
-    async with engine.connect() as connection:
-        async with connection.begin() as transaction:
-            TestingSessionLocal = sessionmaker(
-                bind=connection, class_=AsyncSession, expire_on_commit=False
-            )
-            db_session = TestingSessionLocal()
+    async with engine.connect() as connection, connection.begin() as transaction:
+        TestingSessionLocal = sessionmaker(
+            bind=connection, class_=AsyncSession, expire_on_commit=False
+        )
+        db_session = TestingSessionLocal()
 
-            async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
-                yield db_session
+        async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
+            yield db_session
 
-            app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_db] = override_get_db
 
-            # Yield the TestClient to the test function
-            with TestClient(app) as c:
-                yield c
+        # Yield the TestClient to the test function
+        with TestClient(app) as c:
+            yield c
 
             # The transaction is automatically rolled back when the `async with` block exits.
             # No need for an explicit rollback call unless there's an error to handle.

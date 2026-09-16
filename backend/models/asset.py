@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
-from typing import Literal, Optional
 from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel
 
 
 class Asset(BaseModel):
@@ -16,9 +17,9 @@ class Asset(BaseModel):
     type: Literal["stock", "crypto", "cash", "etf"]
 
     # We'll make current_price optional as it will be populated by our API
-    current_price: Optional[float] = None
+    current_price: float | None = None
 
-    price_last_updated: Optional[datetime] = None
+    price_last_updated: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -36,8 +37,8 @@ class AssetCreate(BaseModel):
 class AssetUpdate(BaseModel):
     """Properties to receive on asset update."""
 
-    symbol: Optional[str] = None
-    name: Optional[str] = None
-    market: Optional[str] = None
+    symbol: str | None = None
+    name: str | None = None
+    market: str | None = None
     type: Literal["stock", "crypto", "cash", "etf"]
-    currency: Optional[str] = None
+    currency: str | None = None

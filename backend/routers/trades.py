@@ -1,19 +1,20 @@
-from fastapi import APIRouter, HTTPException, Depends, status
-from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+import models.users as user_schema
+from db import service
+from db.dependencies import get_current_active_user, get_db
+from models.responses import TradeResponse
 
 # Import the Trade model
 from models.trade import Trade, TradeCreate, TradeUpdate
-from models.responses import TradeResponse
-import models.users as user_schema
-from db.dependencies import get_db, get_current_active_user
-from sqlalchemy.ext.asyncio import AsyncSession
-from db import service
 
 # Create a new router object for trades
 router = APIRouter(prefix="/trades", tags=["Trades"])
 
 
-@router.get("/in-group/{group_id}", response_model=List[Trade])
+@router.get("/in-group/{group_id}", response_model=list[Trade])
 async def read_trades_for_group(
     group_id: int,
     db: AsyncSession = Depends(get_db),
@@ -35,7 +36,7 @@ async def read_trades_for_group(
     return await service.get_trades_by_group_id(db, group_id=group_id)
 
 
-@router.get("/symbol/{symbol}", response_model=List[TradeResponse])
+@router.get("/symbol/{symbol}", response_model=list[TradeResponse])
 async def read_trades_by_symbol(symbol: str, db: AsyncSession = Depends(get_db)):
     """
     Retrieve all trades for a specific asset by its symbol.

@@ -1,7 +1,8 @@
-from datetime import datetime, timedelta, timezone
-from typing import Optional
-from passlib.context import CryptContext
+from datetime import UTC, datetime, timedelta
+
 from jose import JWTError, jwt
+from passlib.context import CryptContext
+
 from core.config import settings
 
 # Password Hashing Context
@@ -18,13 +19,13 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(data: dict, expires_delta: timedelta | None = None):
     """Creates a new JWT access token."""
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(
+        expire = datetime.now(UTC) + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
     to_encode.update({"exp": expire})
@@ -34,7 +35,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 def create_password_reset_token(email: str) -> str:
     """Creates a JWT token for password reset."""
-    expire = datetime.now(timezone.utc) + timedelta(
+    expire = datetime.now(UTC) + timedelta(
         minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
     )
     to_encode = {"sub": email, "exp": expire, "type": "password_reset"}
@@ -42,7 +43,7 @@ def create_password_reset_token(email: str) -> str:
     return encoded_jwt
 
 
-def verify_password_reset_token(token: str) -> Optional[str]:
+def verify_password_reset_token(token: str) -> str | None:
     """
     Verifies a password reset token and returns the email if valid.
     Returns None if the token is invalid or expired.

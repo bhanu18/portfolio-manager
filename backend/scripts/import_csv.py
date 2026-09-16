@@ -1,17 +1,18 @@
-import sys
-import os
-import pandas as pd
 import asyncio
+import os
+import sys
+from datetime import datetime
+
+import pandas as pd
+import yfinance as yf
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from datetime import datetime
-import yfinance as yf
 
 # Add path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from db.session import AsyncSessionLocal
 from db.orm_models import Asset, Trade
+from db.session import AsyncSessionLocal
 
 # Usage: python scripts/import_csv.py path/to/portfolio_history.csv
 CSV_FILE_PATH = sys.argv[1] if len(sys.argv) > 1 else "portfolio_history.csv"
@@ -57,7 +58,7 @@ async def get_yfinance_data_batch(symbols: list) -> dict:
                 "market": info.get("exchange", "Unknown"),
                 "type": info.get("quoteType", "EQUITY").lower(),
             }
-        except Exception as e:
+        except Exception:
             print(f"Warning: Could not fetch details for {symbol}. Using defaults.")
             asset_data_map[symbol] = {
                 "name": symbol,

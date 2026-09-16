@@ -1,6 +1,7 @@
-from pydantic import BaseModel
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
+
+from pydantic import BaseModel
 
 
 class Trade(BaseModel):
@@ -48,9 +49,9 @@ class TradeBase(BaseModel):
 class TradeUpdate(BaseModel):
     """Properties to receive on trade update."""
 
-    asset_id: Optional[int] = None
-    trade_type: Optional[Literal["buy", "sell"]] = None
-    trade_date: Optional[datetime] = None
-    quantity: Optional[float] = None
-    price_per_unit: Optional[float] = None
-    currency: Optional[str] = None
+    asset_id: int | None = None
+    trade_type: Literal["buy", "sell"] | None = None
+    trade_date: datetime | None = None
+    quantity: float | None = None
+    price_per_unit: float | None = None
+    currency: str | None = None

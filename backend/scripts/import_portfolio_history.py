@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 
 import openpyxl
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 # Allow imports from the project root
@@ -206,7 +206,7 @@ def main() -> None:
 
         if not args.dry_run:
             session.commit()
-            print(f"\nCommitted successfully.")
+            print("\nCommitted successfully.")
 
     print(f"\nSummary: {total_imported} trade(s) imported, {len(total_warnings)} warning(s)")
     if total_warnings:

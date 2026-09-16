@@ -1,8 +1,9 @@
-from pydantic import BaseModel, EmailStr
 from datetime import datetime
+
+from pydantic import BaseModel, EmailStr
+
 from db.orm_models import UserRole
 from models.groups import Group
-from typing import List
 
 
 # Properties to receive via API on user creation
@@ -23,7 +24,7 @@ class UserBase(BaseModel):
 class User(UserBase):
     role: UserRole
     is_active: bool
-    groups: List[Group] = []
+    groups: list[Group] = []
     created_at: datetime
     updated_at: datetime
 

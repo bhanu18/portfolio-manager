@@ -1,7 +1,7 @@
 import smtplib
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import List, Optional
+from email.mime.text import MIMEText
+
 from core.config import settings
 
 
@@ -10,10 +10,10 @@ class EmailService:
 
     @staticmethod
     def send_email(
-        to_emails: List[str],
+        to_emails: list[str],
         subject: str,
         body: str,
-        html_body: Optional[str] = None,
+        html_body: str | None = None,
     ) -> dict:
         """
         Send an email using SMTP.
@@ -64,9 +64,9 @@ class EmailService:
         except smtplib.SMTPAuthenticationError:
             raise Exception("SMTP Authentication failed. Please check your email credentials.")
         except smtplib.SMTPException as e:
-            raise Exception(f"SMTP error occurred: {str(e)}")
+            raise Exception(f"SMTP error occurred: {e!s}")
         except Exception as e:
-            raise Exception(f"Failed to send email: {str(e)}")
+            raise Exception(f"Failed to send email: {e!s}")
 
 
 # Create a singleton instance

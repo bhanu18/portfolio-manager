@@ -1,8 +1,9 @@
-from sqlalchemy import Column, String, Float, DateTime, Integer, ForeignKey, Boolean
-from sqlalchemy import Enum as SQLAlchemyEnum, Table
-from sqlalchemy.orm import declarative_base, relationship
-from sqlalchemy.ext.hybrid import hybrid_property
 import enum
+
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Enum as SQLAlchemyEnum
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 

@@ -1,6 +1,7 @@
-from pydantic import BaseModel
 from datetime import datetime
 from typing import Literal
+
+from pydantic import BaseModel
 
 
 # This model defines the structure of the data we will SEND to the user.

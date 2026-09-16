@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Request
-from models.email import EmailRequest, EmailResponse
-from models import users as user_schema
-from service.email import email_service
-from db.dependencies import get_current_active_regular_user
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+
+from db.dependencies import get_current_active_regular_user
+from models import users as user_schema
+from models.email import EmailRequest, EmailResponse
+from service.email import email_service
 
 router = APIRouter(prefix="/email", tags=["Email"])
 
@@ -74,5 +75,5 @@ async def send_email(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to send email: {str(e)}",
+            detail=f"Failed to send email: {e!s}",
         )

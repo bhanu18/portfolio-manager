@@ -1,22 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Any, List
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.dependencies import get_db
+from core.config import settings
 from db import service
+from db.dependencies import get_current_active_admin_user, get_current_active_user, get_db
 from models import users as user_schema
+from service.email import email_service
 from service.security import (
-    verify_password,
     create_access_token,
     create_password_reset_token,
+    verify_password,
     verify_password_reset_token,
 )
-from service.email import email_service
-from core.config import settings
-from db.dependencies import get_current_active_admin_user, get_current_active_user
 
 router = APIRouter(tags=["Authentication"])
 
@@ -72,7 +72,7 @@ async def login_for_access_token(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@router.get("/users", response_model=List[user_schema.User], tags=["Admin"])
+@router.get("/users", response_model=list[user_schema.User], tags=["Admin"])
 async def read_all_users(
     db: AsyncSession = Depends(get_db),
     current_admin_user: user_schema.User = Depends(get_current_active_admin_user),

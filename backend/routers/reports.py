@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timedelta
-from forex_python.converter import CurrencyRates, RatesNotAvailableError
 from collections import defaultdict
-import yfinance as yf
+from datetime import datetime, timedelta
 
-from db.dependencies import get_db
+import yfinance as yf
+from fastapi import APIRouter, Depends, HTTPException
+from forex_python.converter import CurrencyRates, RatesNotAvailableError
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from db import service
+from db.dependencies import get_db
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
@@ -150,9 +151,6 @@ async def get_portfolio_performance(
         base_currency: Currency for reporting (default: USD)
         benchmark_ticker: Benchmark index (default: SPY)
     """
-    from datetime import datetime, timedelta
-    from collections import defaultdict
-    import yfinance as yf
 
     now = datetime.utcnow()
     report_date = now.strftime("%Y-%m-%d")
@@ -243,7 +241,7 @@ async def get_portfolio_performance(
                 "rate": 1.0,
                 "actual_date": date.strftime("%Y-%m-%d"),
                 "source": "fallback_default",
-                "warning": f"FX rate unavailable, using 1.0",
+                "warning": "FX rate unavailable, using 1.0",
             }
             return result
 

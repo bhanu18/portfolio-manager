@@ -1,5 +1,5 @@
+
 from pydantic import BaseModel, ConfigDict
-from typing import List, Optional
 
 
 # A simplified User schema for nesting inside a Group response
@@ -26,4 +26,4 @@ class Group(GroupBase):
 
 # A new, detailed response model that includes members
 class GroupWithMembers(Group):
-    members: List[UserInGroup] = []
+    members: list[UserInGroup] = []

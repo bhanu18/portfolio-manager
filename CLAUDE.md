@@ -6,7 +6,7 @@ Monorepo created 2026-09-16 by merging two projects:
 Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio_manager` as backups.
 
 ## Stack
-- **Backend:** Python 3.10, FastAPI, async SQLAlchemy (aiomysql / Cloud SQL MySQL), Alembic migrations, JWT auth (OAuth2 password flow, roles `user`/`admin`, scoped group roles), yfinance + forex-python for prices/FX, SMTP email, slowapi rate limits. Dockerfile kept; no hosting/deploy pipeline (Cloud Run/Cloud Build scripts removed 2026-09-16).
+- **Backend:** Python 3.12 (pinned: `backend/.python-version`, Dockerfile `python:3.12-slim`; 3.14 breaks pydantic_core/watchfiles wheels — upgrade deps before moving past 3.12), FastAPI, async SQLAlchemy (aiomysql / Cloud SQL MySQL), Alembic migrations, JWT auth (OAuth2 password flow, roles `user`/`admin`, scoped group roles), yfinance + forex-python for prices/FX, SMTP email, slowapi rate limits. Dockerfile kept; no hosting/deploy pipeline (Cloud Run/Cloud Build scripts removed 2026-09-16).
 - **Frontend:** Vite 5 + React 18 + TypeScript, react-router v6, @tanstack/react-query v5, axios. No UI lib — plain CSS in `src/styles/index.css`.
 
 ## Layout
@@ -24,7 +24,7 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 - `docs/backend/`, `docs/frontend/` — feature specs (performance scoring, FX reports, permissions)
 
 ## Commands
-- Backend setup: `pip install -r requirements-dev.txt` (runtime deps only in `requirements.txt`)
+- Backend setup: `uv venv venv --python 3.12 && uv pip install -r requirements-dev.txt` (runtime deps only in `requirements.txt`)
 - Migrate: `cd backend && alembic upgrade head` — NOT run on startup
 - Backend dev: `cd backend && source venv/bin/activate && uvicorn main:app --reload`
 - Docker: `docker build -t portfolio-api backend && docker run --env-file backend/.env -p 8000:8000 portfolio-api`

@@ -15,10 +15,12 @@ portfolio_dashboard/
 ## Run locally
 
 **Backend** (http://localhost:8000, docs at `/docs`)
+
+Requires **Python 3.12** (pinned in `backend/.python-version`). Python 3.14 will fail to build `pydantic_core` / `watchfiles`.
 ```bash
 cd backend
-python3 -m venv venv && source venv/bin/activate
-pip install -r requirements-dev.txt   # runtime + test deps
+uv venv venv --python 3.12 && source venv/bin/activate   # or: python3.12 -m venv venv
+uv pip install -r requirements-dev.txt   # or pip install; runtime + test deps
 cp .env.example .env   # fill in DB + SECRET_KEY + SMTP
 alembic upgrade head   # migrations are NOT run on app start
 uvicorn main:app --reload

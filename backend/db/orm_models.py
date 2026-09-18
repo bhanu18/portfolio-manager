@@ -24,6 +24,10 @@ class Trade(Base):
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=False, index=True)
     group = relationship("Group", back_populates="trades")
 
+    # Stable identifier of the row this trade was imported from (NULL for manual trades).
+    # Unique, so re-running an import updates instead of duplicating.
+    source_ref = Column(String(64), nullable=True, unique=True, index=True)
+
 
 class Asset(Base):
     __tablename__ = "assets"

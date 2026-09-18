@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import declarative_base, relationship
@@ -27,6 +27,11 @@ class Trade(Base):
     # Stable identifier of the row this trade was imported from (NULL for manual trades).
     # Unique, so re-running an import updates instead of duplicating.
     source_ref = Column(String(64), nullable=True, unique=True, index=True)
+
+    # Row bookkeeping: when this trade record was created/last changed, which is
+    # unrelated to trade_date (when the trade actually happened).
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 
 
 class Asset(Base):

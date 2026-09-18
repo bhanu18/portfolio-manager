@@ -23,17 +23,12 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 os.environ["TESTING"] = "1"
 
 from core.config import settings
-from db.dependencies import get_db
-from main import app
-from routers import auth as auth_router
-from routers import email as email_router
 
-if not settings.TEST_DATABASE_URL:
-    pytest.exit("TEST_DATABASE_URL must be set to run the test suite", returncode=2)
-
-TEST_ASYNC_URL = settings.TEST_DATABASE_URL
+TEST_ASYNC_URL = settings.TEST_DATABASE_URL or ""
 TEST_SYNC_URL = (
     make_url(TEST_ASYNC_URL).set(drivername="mysql+pymysql").render_as_string(hide_password=False)
+    if TEST_ASYNC_URL
+    else ""
 )
 
 BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -51,9 +46,14 @@ def _drop_all_tables(url: str) -> None:
     engine.dispose()
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def migrate_test_db() -> Generator[None, None, None]:
-    """Start from an empty test database and apply all migrations once per session."""
+    """Start from an empty test database and apply all migrations once per session.
+
+    Requested by the db fixtures only, so parser/unit tests run without a database.
+    """
+    if not TEST_ASYNC_URL:
+        pytest.skip("TEST_DATABASE_URL is not set")
     _drop_all_tables(TEST_SYNC_URL)
     cfg = Config(os.path.join(BACKEND_DIR, "alembic.ini"))
     cfg.set_main_option("sqlalchemy.url", TEST_SYNC_URL)
@@ -62,9 +62,13 @@ def migrate_test_db() -> Generator[None, None, None]:
     _drop_all_tables(TEST_SYNC_URL)
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def disable_rate_limits() -> Generator[None, None, None]:
     """slowapi limits (e.g. 3 registrations/hour) would make tests order-dependent."""
+    from main import app
+    from routers import auth as auth_router
+    from routers import email as email_router
+
     limiters = [auth_router.limiter, email_router.limiter, app.state.limiter]
     for limiter in limiters:
         limiter.enabled = False
@@ -74,7 +78,7 @@ def disable_rate_limits() -> Generator[None, None, None]:
 
 
 @pytest.fixture
-async def db_session() -> AsyncGenerator[AsyncSession, None]:
+async def db_session(migrate_test_db: None) -> AsyncGenerator[AsyncSession, None]:
     """A session bound to an outer transaction that is rolled back after the test."""
     engine = create_async_engine(TEST_ASYNC_URL, poolclass=NullPool)
     async with engine.connect() as connection:
@@ -91,8 +95,12 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest.fixture
-async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+async def client(
+    db_session: AsyncSession, disable_rate_limits: None
+) -> AsyncGenerator[AsyncClient, None]:
     """HTTP client that talks to the app in-process, using the test session."""
+    from db.dependencies import get_db
+    from main import app
 
     async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
         yield db_session

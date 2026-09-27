@@ -1,3 +1,6 @@
+# Agent scratch space, including git worktrees with a second copy of the repo.
+.claude
+
 dist
 node_modules
 package-lock.json

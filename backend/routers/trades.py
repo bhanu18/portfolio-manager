@@ -59,6 +59,9 @@ async def read_trades_by_symbol(symbol: str, db: AsyncSession = Depends(get_db))
             trade_date=trade.trade_date,
             quantity=trade.quantity,
             price_per_unit=trade.price_per_unit,
+            currency=trade.currency,
+            created_at=trade.created_at,
+            updated_at=trade.updated_at,
         )
         for trade in trades
     ]

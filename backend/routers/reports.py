@@ -1,53 +1,260 @@
+import asyncio
+import logging
 from collections import defaultdict
-from datetime import datetime, timedelta
+from collections.abc import Callable, Sequence
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pandas as pd
 import yfinance as yf
 from fastapi import APIRouter, Depends, HTTPException
-from forex_python.converter import CurrencyRates, RatesNotAvailableError
+from forex_python.converter import CurrencyRates
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import models.users as user_schema
 from db import service
-from db.dependencies import get_db
+from db.dependencies import get_current_active_user, get_db
+from service.scoring import calculate_performance_scores
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
 # Initialize the currency converter
 c = CurrencyRates()
 
+# yfinance and forex-python are synchronous, so every call below is dispatched to
+# a worker thread and never blocks the event loop. This caps how many run at once.
+_MAX_CONCURRENT_FETCHES = 8
+
+
+def _user_group_ids(current_user: user_schema.User) -> list[int]:
+    """
+    The group IDs the current user belongs to.
+
+    Trades are owned by a group (see `Trade.group_id`), so every report must be
+    restricted to these IDs. Admins get no special treatment here, matching the
+    membership checks in the trades router.
+    """
+    return [group.id for group in current_user.groups]
+
+
+async def _run_in_threads(calls: Sequence[tuple[Callable[..., Any], tuple[Any, ...]]]) -> list[Any]:
+    """Run blocking callables in worker threads, `_MAX_CONCURRENT_FETCHES` at a time."""
+    semaphore = asyncio.Semaphore(_MAX_CONCURRENT_FETCHES)
+
+    async def run(fn: Callable[..., Any], args: tuple[Any, ...]) -> Any:
+        async with semaphore:
+            return await asyncio.to_thread(fn, *args)
+
+    return list(await asyncio.gather(*(run(fn, args) for fn, args in calls)))
+
+
+# =================================================================
+# === BLOCKING LOOKUPS (always called via a worker thread) ===
+# =================================================================
+
+
+def _blocking_rate(from_currency: str, to_currency: str) -> float | None:
+    """Current FX rate, or None if the upstream provider cannot supply it."""
+    if from_currency == to_currency:
+        return 1.0
+    try:
+        return float(c.get_rate(from_currency, to_currency))
+    except Exception:
+        logger.warning("FX rate %s->%s unavailable", from_currency, to_currency, exc_info=True)
+        return None
+
+
+def _nearest_row_label(index: pd.DatetimeIndex, date: datetime) -> Any:
+    """
+    Label of the last row at or before `date`, falling back to the first row.
+
+    yfinance returns a tz-aware index while trade dates come out of MySQL naive;
+    comparing the two raises TypeError, so align them before comparing.
+    """
+    target = pd.Timestamp(date)
+    if index.tz is not None:
+        target = (
+            target.tz_localize(index.tz) if target.tzinfo is None else target.tz_convert(index.tz)
+        )
+    elif target.tzinfo is not None:
+        target = target.tz_localize(None)
+
+    earlier = index[index <= target]
+    return earlier[-1] if len(earlier) else index[0]
+
+
+def _history_rate(pair: str, date: datetime, invert: bool) -> tuple[float, datetime] | None:
+    """Close price for `pair` at (or just before) `date`, with the date actually used."""
+    # Fetch a week of data to handle weekends/holidays
+    hist = yf.Ticker(pair).history(start=date - timedelta(days=7), end=date + timedelta(days=1))
+    if hist.empty:
+        return None
+
+    label = _nearest_row_label(hist.index, date)
+    close = float(hist.loc[label, "Close"])
+    if close == 0:
+        return None
+
+    return (1.0 / close if invert else close), label.to_pydatetime()
+
+
+def _blocking_historical_fx(
+    from_currency: str, to_currency: str, date: datetime, now: datetime
+) -> dict[str, Any]:
+    """Historical FX rate at `date`, degrading to the current rate and then to 1.0."""
+    if from_currency == to_currency:
+        return {
+            "rate": 1.0,
+            "actual_date": date.strftime("%Y-%m-%d"),
+            "source": "same_currency",
+            "warning": None,
+        }
+
+    candidates = (
+        # Direct pair (e.g., THBUSD=X), then the inverse
+        (f"{from_currency}{to_currency}=X", False, "yfinance"),
+        (f"{to_currency}{from_currency}=X", True, "yfinance_inverse"),
+    )
+    for pair, invert, source in candidates:
+        try:
+            found = _history_rate(pair, date, invert)
+        except Exception:
+            logger.warning("Failed to fetch %s history", pair, exc_info=True)
+            continue
+
+        if found is None:
+            continue
+
+        rate, actual_date = found
+        return {
+            "rate": rate,
+            "actual_date": actual_date.strftime("%Y-%m-%d"),
+            "source": source,
+            "warning": None
+            if actual_date.date() == date.date()
+            else f"Used {actual_date.date()} (nearest to {date.date()})",
+        }
+
+    # Fallback to the current rate if the historical one is not available
+    current_rate = _blocking_rate(from_currency, to_currency)
+    if current_rate is not None:
+        return {
+            "rate": current_rate,
+            "actual_date": now.strftime("%Y-%m-%d"),
+            "source": "fallback_current",
+            "warning": f"Historical FX rate unavailable for {date.date()}, using current rate",
+        }
+
+    return {
+        "rate": 1.0,
+        "actual_date": date.strftime("%Y-%m-%d"),
+        "source": "fallback_default",
+        "warning": "FX rate unavailable, using 1.0",
+    }
+
+
+def _blocking_current_price(symbol: str) -> float:
+    """Latest price for `symbol`, or 0.0 if yfinance has nothing usable."""
+    try:
+        ticker = yf.Ticker(symbol)
+        price = ticker.info.get("regularMarketPrice") or 0
+        if not price:
+            hist = ticker.history(period="1d")
+            price = hist["Close"].iloc[-1] if not hist.empty else 0
+        return float(price or 0)
+    except Exception:
+        logger.warning("Failed to fetch current price for %s", symbol, exc_info=True)
+        return 0.0
+
+
+def _blocking_asset_currency(symbol: str) -> str | None:
+    """The currency yfinance reports for `symbol`, or None when the lookup fails."""
+    try:
+        return str(yf.Ticker(symbol).info.get("currency", "USD")).upper()
+    except Exception:
+        logger.warning("Failed to fetch currency for %s", symbol, exc_info=True)
+        return None
+
+
+def _blocking_benchmark_return(symbol: str, start: str, end: datetime) -> float | None:
+    """Percent return of `symbol` between `start` and `end`, or None on failure."""
+    try:
+        hist = yf.Ticker(symbol).history(start=start, end=end)
+        if hist.empty:
+            return None
+        start_price = float(hist["Close"].iloc[0])
+        end_price = float(hist["Close"].iloc[-1])
+        if start_price == 0:
+            return None
+        return ((end_price / start_price) - 1) * 100
+    except Exception:
+        logger.warning("Failed to fetch benchmark data for %s", symbol, exc_info=True)
+        return None
+
+
+async def _rates_to_usd(currencies: Sequence[str]) -> dict[str, float]:
+    """Current rates to USD for each currency, fetched concurrently. 503 if any is missing."""
+    wanted = sorted({currency.upper() for currency in currencies} - {"USD"})
+    results = await _run_in_threads([(_blocking_rate, (currency, "USD")) for currency in wanted])
+
+    rates = {"USD": 1.0}
+    for currency, rate in zip(wanted, results, strict=True):
+        if rate is None:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Exchange rate from {currency} to USD is unavailable.",
+            )
+        rates[currency] = rate
+    return rates
+
 
 @router.get("/valuation/{symbol}/{target_currency}")
 async def get_portfolio_valuation_by_symbol(
-    symbol: str, target_currency: str, db: AsyncSession = Depends(get_db)
+    symbol: str,
+    target_currency: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: user_schema.User = Depends(get_current_active_user),
 ):
     """
     Calculates the valuation of a specific asset holding in a target currency.
+
+    Only trades belonging to the current user's groups are included.
 
     - `symbol`: The asset symbol (e.g., 'AAPL').
     - `target_currency`: The currency for the report (e.g., 'THB', 'EUR').
     """
     target_currency = target_currency.upper()
 
-    # 1. Get the asset and its trades from the database
+    # 1. Get the asset and the user's trades for it from the database
     asset = await service.get_asset_by_symbol(db, symbol=symbol.upper())
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    trades = await service.get_trades_by_asset_id(db, asset_id=asset.id)
+    trades = await service.get_trades_by_asset_id_for_groups(
+        db, asset_id=asset.id, group_ids=_user_group_ids(current_user)
+    )
     if not trades:
         raise HTTPException(status_code=404, detail="No trades found for this asset")
 
-    # 2. Calculate total holdings and cost basis in USD
+    # 2. Calculate total holdings and cost basis in USD.
+    # Each trade is priced in its own `currency`, so convert before summing —
+    # `price_per_unit` is NOT USD unless the trade says so.
     total_quantity = 0
     total_cost_usd = 0
+    trade_rates = await _rates_to_usd([trade.currency for trade in trades])
 
     for trade in trades:
+        trade_value_usd = (
+            trade.quantity * trade.price_per_unit * trade_rates[trade.currency.upper()]
+        )
         if trade.trade_type == "buy":
             total_quantity += trade.quantity
-            total_cost_usd += trade.quantity * trade.price_per_unit
+            total_cost_usd += trade_value_usd
         elif trade.trade_type == "sell":
             total_quantity -= trade.quantity
-            total_cost_usd -= trade.quantity * trade.price_per_unit
+            total_cost_usd -= trade_value_usd
 
     if total_quantity <= 0:
         return {"message": "No active holdings for this asset."}
@@ -57,15 +264,8 @@ async def get_portfolio_valuation_by_symbol(
     # 3. Determine the asset's currency
     # Since assets table doesn't have currency, we'll infer it from:
     # 1. yfinance data, or 2. market field, or 3. default to USD
-    asset_currency = "USD"  # Default
-
-    try:
-        import yfinance as yf
-
-        ticker = yf.Ticker(asset.symbol)
-        info = ticker.info
-        asset_currency = info.get("currency", "USD").upper()
-    except Exception:
+    asset_currency = await asyncio.to_thread(_blocking_asset_currency, asset.symbol)
+    if asset_currency is None:
         # If yfinance fails, infer from market
         market_currency_map = {
             "NASDAQ": "USD",
@@ -82,28 +282,16 @@ async def get_portfolio_valuation_by_symbol(
     current_value_native = total_quantity * asset.current_price
 
     # 5. Convert the native value to our common base currency (USD)
-    current_value_usd = 0
-    if asset_currency == "USD":
-        current_value_usd = current_value_native
-    else:
-        try:
-            # Get rate to convert from the asset's currency TO USD
-            rate_to_usd = c.get_rate(asset_currency, "USD")
-            current_value_usd = current_value_native * rate_to_usd
-        except RatesNotAvailableError:
-            raise HTTPException(
-                status_code=503,
-                detail=f"Exchange rate from {asset_currency} to USD is unavailable.",
-            ) from None
+    asset_rates = await _rates_to_usd([asset_currency])
+    current_value_usd = current_value_native * asset_rates[asset_currency]
 
     # 6. Get the CURRENT exchange rate to convert from USD to the TARGET currency
-    try:
-        usd_to_target_rate = c.get_rate("USD", target_currency.upper())
-    except RatesNotAvailableError:
+    usd_to_target_rate = await asyncio.to_thread(_blocking_rate, "USD", target_currency)
+    if usd_to_target_rate is None:
         raise HTTPException(
             status_code=503,
             detail=f"Exchange rates for {target_currency} are currently unavailable.",
-        ) from None
+        )
 
     # 7. Calculate final values
     current_value_target = current_value_usd * usd_to_target_rate
@@ -116,7 +304,7 @@ async def get_portfolio_valuation_by_symbol(
     return {
         "symbol": asset.symbol,
         "asset_native_currency": asset_currency,  # Currency determined from yfinance or market
-        "reporting_currency": target_currency.upper(),
+        "reporting_currency": target_currency,
         "holdings": {
             "quantity": total_quantity,
             "average_cost_usd": round(avg_cost_usd, 4),
@@ -135,10 +323,17 @@ async def get_portfolio_valuation_by_symbol(
 
 @router.get("/portfolio-performance", summary="Get comprehensive portfolio performance analysis")
 async def get_portfolio_performance(
-    base_currency: str = "USD", benchmark_ticker: str = "SPY", db: AsyncSession = Depends(get_db)
+    base_currency: str = "USD",
+    benchmark_ticker: str = "SPY",
+    risk_free_rate: float | None = None,
+    lookback_period: str = "1y",
+    db: AsyncSession = Depends(get_db),
+    current_user: user_schema.User = Depends(get_current_active_user),
 ):
     """
     Comprehensive portfolio performance analysis with multi-currency support.
+
+    Only trades belonging to the current user's groups are included.
 
     Features:
     - Historical FX rates at trade date for accurate cost basis
@@ -147,121 +342,39 @@ async def get_portfolio_performance(
     - Grouping by currency and asset type
     - Top/bottom performers
     - Annualized returns
+    - Risk-adjusted performance scoring (CAGR, Sharpe, Sortino, max drawdown,
+      beta/alpha vs benchmark) computed over `lookback_period`, both per-holding
+      and for the portfolio as a whole (value-weighted daily return series)
 
     Args:
         base_currency: Currency for reporting (default: USD)
         benchmark_ticker: Benchmark index (default: SPY)
+        risk_free_rate: Annualized risk-free rate as a decimal (e.g. 0.045). If not
+            provided, it is fetched from ^IRX with a static fallback.
+        lookback_period: History window used for scoring metrics only (yfinance
+            period string, e.g. "1y", "6mo", "2y"). Independent of the FIFO
+            cost-basis calculations above, which always use full trade history.
     """
 
-    now = datetime.utcnow()
+    # Naive UTC, to stay comparable with the naive `trade_date` column
+    now = datetime.now(UTC).replace(tzinfo=None)
     report_date = now.strftime("%Y-%m-%d")
 
-    # FX rate cache to avoid redundant API calls
-    fx_cache: dict[str, dict[str, Any]] = {}
-    fx_warnings = []
+    fx_warnings: list[dict[str, str]] = []
 
-    # Helper function to get historical FX rate
-    def get_historical_fx_rate(from_currency: str, to_currency: str, date: datetime) -> dict:
-        """Get historical FX rate at specific date"""
-        if from_currency == to_currency:
-            return {
-                "rate": 1.0,
-                "actual_date": date.strftime("%Y-%m-%d"),
-                "source": "same_currency",
-                "warning": None,
-            }
+    def fx_cache_key(from_currency: str, date: datetime) -> str:
+        return f"{from_currency}{base_currency}_{date.strftime('%Y-%m-%d')}"
 
-        cache_key = f"{from_currency}{to_currency}_{date.strftime('%Y-%m-%d')}"
-        if cache_key in fx_cache:
-            return fx_cache[cache_key]
-
-        try:
-            # Try direct pair (e.g., THBUSD=X)
-            pair = f"{from_currency}{to_currency}=X"
-            ticker = yf.Ticker(pair)
-            # Fetch a week of data to handle weekends/holidays
-            hist = ticker.history(start=date - timedelta(days=7), end=date + timedelta(days=1))
-
-            if not hist.empty:
-                # Get closest date
-                closest_date = (
-                    hist.index[hist.index <= date][-1] if any(hist.index <= date) else hist.index[0]
-                )
-                rate = hist.loc[closest_date, "Close"]
-                result = {
-                    "rate": float(rate),
-                    "actual_date": closest_date.strftime("%Y-%m-%d"),
-                    "source": "yfinance",
-                    "warning": None
-                    if closest_date.date() == date.date()
-                    else f"Used {closest_date.date()} (nearest to {date.date()})",
-                }
-                fx_cache[cache_key] = result
-                return result
-        except Exception as e:
-            print(f"Failed to fetch {from_currency}/{to_currency} direct: {e}")
-
-        # Try inverse pair
-        try:
-            pair = f"{to_currency}{from_currency}=X"
-            ticker = yf.Ticker(pair)
-            hist = ticker.history(start=date - timedelta(days=7), end=date + timedelta(days=1))
-
-            if not hist.empty:
-                closest_date = (
-                    hist.index[hist.index <= date][-1] if any(hist.index <= date) else hist.index[0]
-                )
-                rate = 1.0 / hist.loc[closest_date, "Close"]
-                result = {
-                    "rate": float(rate),
-                    "actual_date": closest_date.strftime("%Y-%m-%d"),
-                    "source": "yfinance_inverse",
-                    "warning": None
-                    if closest_date.date() == date.date()
-                    else f"Used {closest_date.date()} (nearest to {date.date()})",
-                }
-                fx_cache[cache_key] = result
-                return result
-        except Exception as e:
-            print(f"Failed to fetch {from_currency}/{to_currency} inverse: {e}")
-
-        # Fallback to current rate if historical not available
-        try:
-            current_rate = c.get_rate(from_currency, to_currency)
-            warning = f"Historical FX rate unavailable for {date.date()}, using current rate"
-            result = {
-                "rate": current_rate,
-                "actual_date": now.strftime("%Y-%m-%d"),
-                "source": "fallback_current",
-                "warning": warning,
-            }
-            fx_cache[cache_key] = result
-            return result
-        except Exception:
-            result = {
-                "rate": 1.0,
-                "actual_date": date.strftime("%Y-%m-%d"),
-                "source": "fallback_default",
-                "warning": "FX rate unavailable, using 1.0",
-            }
-            return result
-
-    # Helper function to get current FX rate
-    def get_current_fx_rate(from_currency: str, to_currency: str) -> float:
-        """Get current FX rate"""
-        if from_currency == to_currency:
-            return 1.0
-        try:
-            return c.get_rate(from_currency, to_currency)
-        except Exception:
-            return 1.0
-
-    print(
-        f"\n[Portfolio Performance Analysis] Report Date: {report_date}, Base Currency: {base_currency}"
+    logger.info(
+        "[Portfolio Performance Analysis] Report Date: %s, Base Currency: %s",
+        report_date,
+        base_currency,
     )
 
-    # Fetch all trades and assets (set high limit to get all records)
-    all_trades = await service.get_all_trades(db, skip=0, limit=10000)
+    # Fetch the user's trades and all assets (set high limit to get all records)
+    all_trades = await service.get_trades_by_group_ids(
+        db, group_ids=_user_group_ids(current_user), skip=0, limit=10000
+    )
     all_assets = await service.get_all_assets(db, skip=0, limit=10000)
     assets_dict = {asset.id: asset for asset in all_assets}
 
@@ -278,21 +391,95 @@ async def get_portfolio_performance(
             holdings_by_asset[trade.asset_id]["sells"].append(trade)
             holdings_by_asset[trade.asset_id]["quantity"] -= trade.quantity
 
-    # Calculate current exchange rates
+    # Resolve each open position into FIFO lots first, so the FX prefetch below
+    # only covers the buy trades that actually make up the remaining holding.
+    lots_by_asset: dict[int, list[tuple[Any, float]]] = {}
+    for asset_id, holding_data in holdings_by_asset.items():
+        if holding_data["quantity"] <= 0:
+            continue  # Skip sold or zero positions
+        if asset_id not in assets_dict:
+            continue
+
+        quantity_remaining = holding_data["quantity"]
+        lots: list[tuple[Any, float]] = []
+        for buy_trade in sorted(holding_data["buys"], key=lambda x: x.trade_date):
+            if quantity_remaining <= 0:
+                break
+            qty_from_this_trade = min(buy_trade.quantity, quantity_remaining)
+            lots.append((buy_trade, qty_from_this_trade))
+            quantity_remaining -= qty_from_this_trade
+
+        if lots:
+            lots_by_asset[asset_id] = lots
+
+    # --- Prefetch every blocking lookup concurrently -------------------------
+
+    # Historical FX, one call per distinct (currency, date)
+    fx_requests: dict[str, tuple[str, datetime]] = {}
+    for lots in lots_by_asset.values():
+        for buy_trade, _qty in lots:
+            fx_requests.setdefault(
+                fx_cache_key(buy_trade.currency, buy_trade.trade_date),
+                (buy_trade.currency, buy_trade.trade_date),
+            )
+
+    fx_keys = list(fx_requests)
+    fx_results = await _run_in_threads(
+        [
+            (
+                _blocking_historical_fx,
+                (fx_requests[key][0], base_currency, fx_requests[key][1], now),
+            )
+            for key in fx_keys
+        ]
+    )
+    fx_cache: dict[str, dict[str, Any]] = dict(zip(fx_keys, fx_results, strict=True))
+
+    # Current FX rates
     currencies_in_portfolio = set()
-    for asset_id in holdings_by_asset:
-        if holdings_by_asset[asset_id]["quantity"] > 0:
-            for trade in holdings_by_asset[asset_id]["buys"]:
+    for holding_data in holdings_by_asset.values():
+        if holding_data["quantity"] > 0:
+            for trade in holding_data["buys"]:
                 currencies_in_portfolio.add(trade.currency)
 
+    rate_currencies = sorted(
+        currency for currency in currencies_in_portfolio if currency != base_currency
+    )
+    rate_results = await _run_in_threads(
+        [(_blocking_rate, (currency, base_currency)) for currency in rate_currencies]
+    )
+
     exchange_rates_current = {base_currency: 1.0}
-    for currency in currencies_in_portfolio:
-        if currency != base_currency:
-            exchange_rates_current[currency] = get_current_fx_rate(currency, base_currency)
+    for currency, rate in zip(rate_currencies, rate_results, strict=True):
+        if rate is None:
+            # Don't fall back to 1.0 silently — the numbers would look plausible
+            exchange_rates_current[currency] = 1.0
+            fx_warnings.append(
+                {
+                    "ticker": currency,
+                    "message": (
+                        f"Current FX rate {currency}->{base_currency} unavailable, using 1.0"
+                    ),
+                }
+            )
+        else:
+            exchange_rates_current[currency] = rate
 
-    print(f"Current exchange rates: {exchange_rates_current}")
+    logger.info("Current exchange rates: %s", exchange_rates_current)
 
-    # Analyze each holding
+    # Current prices, only for assets with no stored price
+    price_symbols = [
+        assets_dict[asset_id].symbol
+        for asset_id in lots_by_asset
+        if not assets_dict[asset_id].current_price
+    ]
+    price_results = await _run_in_threads(
+        [(_blocking_current_price, (symbol,)) for symbol in price_symbols]
+    )
+    fetched_prices = dict(zip(price_symbols, price_results, strict=True))
+
+    # --- Analyze each holding ------------------------------------------------
+
     holdings_analysis = []
     total_cost_basis_base = 0.0
     total_current_value_base = 0.0
@@ -305,32 +492,19 @@ async def get_portfolio_performance(
         lambda: {"value_base": 0, "cost_basis_base": 0}
     )
 
-    for asset_id, holding_data in holdings_by_asset.items():
-        if holding_data["quantity"] <= 0:
-            continue  # Skip sold or zero positions
-
-        asset = assets_dict.get(asset_id)
-        if not asset:
-            continue
+    for asset_id, lots in lots_by_asset.items():
+        holding_data = holdings_by_asset[asset_id]
+        asset = assets_dict[asset_id]
 
         # Calculate FIFO cost basis with historical FX rates
-        quantity_remaining = holding_data["quantity"]
         cost_basis_base = 0
         weighted_fx_at_purchase = 0
         weighted_purchase_price = 0
         earliest_purchase_date = None
         total_quantity_for_weighting = 0
 
-        for buy_trade in sorted(holding_data["buys"], key=lambda x: x.trade_date):
-            if quantity_remaining <= 0:
-                break
-
-            qty_from_this_trade = min(buy_trade.quantity, quantity_remaining)
-
-            # Get historical FX rate at purchase date
-            fx_data = get_historical_fx_rate(
-                buy_trade.currency, base_currency, buy_trade.trade_date
-            )
+        for buy_trade, qty_from_this_trade in lots:
+            fx_data = fx_cache[fx_cache_key(buy_trade.currency, buy_trade.trade_date)]
             fx_rate_at_purchase = fx_data["rate"]
 
             if fx_data["warning"]:
@@ -348,8 +522,6 @@ async def get_portfolio_performance(
             if earliest_purchase_date is None or buy_trade.trade_date < earliest_purchase_date:
                 earliest_purchase_date = buy_trade.trade_date
 
-            quantity_remaining -= qty_from_this_trade
-
         if total_quantity_for_weighting == 0:
             continue
 
@@ -358,20 +530,8 @@ async def get_portfolio_performance(
         trade_currency = holding_data["buys"][0].currency
 
         # Get current price
-        try:
-            ticker = yf.Ticker(asset.symbol)
-            current_price = (
-                asset.current_price
-                if asset.current_price
-                else ticker.info.get("regularMarketPrice", 0)
-            )
-            if not current_price:
-                hist = ticker.history(period="1d")
-                current_price = hist["Close"].iloc[-1] if not hist.empty else 0
-        except Exception:
-            current_price = asset.current_price if asset.current_price else 0
-
-        if current_price == 0:
+        current_price = asset.current_price or fetched_prices.get(asset.symbol, 0)
+        if not current_price:
             continue
 
         # Current value using current FX rate
@@ -484,21 +644,17 @@ async def get_portfolio_performance(
     total_fx_gain = sum(curr_data["fx_gain"] for curr_data in by_currency.values())
 
     # Benchmark comparison
-    benchmark_return = 0
-    alpha = 0
-    try:
-        bench_ticker = yf.Ticker(benchmark_ticker)
+    benchmark_return = 0.0
+    alpha = 0.0
+    purchase_dates = [h["purchase_date"] for h in holdings_analysis if h["purchase_date"]]
+    if purchase_dates:
         # Get benchmark data for the earliest holding
-        if holdings_analysis:
-            earliest_date = min(h["purchase_date"] for h in holdings_analysis if h["purchase_date"])
-            bench_hist = bench_ticker.history(start=earliest_date, end=now)
-            if not bench_hist.empty:
-                start_price = bench_hist["Close"].iloc[0]
-                end_price = bench_hist["Close"].iloc[-1]
-                benchmark_return = ((end_price / start_price) - 1) * 100
-                alpha = total_unrealized_gain_loss_pct - benchmark_return
-    except Exception:
-        print("Failed to fetch benchmark data")
+        fetched_return = await asyncio.to_thread(
+            _blocking_benchmark_return, benchmark_ticker, min(purchase_dates), now
+        )
+        if fetched_return is not None:
+            benchmark_return = fetched_return
+            alpha = total_unrealized_gain_loss_pct - benchmark_return
 
     # Format by_currency for output
     by_currency_output = {}
@@ -545,10 +701,46 @@ async def get_portfolio_performance(
         {"ticker": h["ticker"], "total_return_pct": h["total_return_pct"]}
         for h in sorted_holdings[:5]
     ]
+    bottom_sorted = sorted(holdings_analysis, key=lambda x: x["total_return_pct"])  # worst first
     bottom_performers = [
         {"ticker": h["ticker"], "total_return_pct": h["total_return_pct"]}
-        for h in sorted_holdings[-5:]
+        for h in bottom_sorted[:5]
     ]
+
+    # --- Risk-adjusted performance scoring (additive only) -------------------
+    # Uses a separate return frame (fixed lookback_period) from the FIFO
+    # cost-basis calculations above. Never raises: falls back to a null shape
+    # with a warning. calculate_performance_scores is fully synchronous
+    # (yfinance), so it runs in a worker thread like every other blocking call.
+    scoring_input = [
+        {
+            "ticker": h["ticker"],
+            "trade_currency": h["original_currency"],
+            "weight_pct": h["weight_pct"],
+        }
+        for h in holdings_analysis
+    ]
+    try:
+        scores_result = await asyncio.to_thread(
+            calculate_performance_scores,
+            scoring_input,
+            base_currency,
+            benchmark_ticker,
+            risk_free_rate,
+            lookback_period,
+        )
+    except Exception as e:
+        logger.warning("Failed to compute performance scores", exc_info=True)
+        scores_result = {
+            "portfolio_score": None,
+            "holdings_scores": [],
+            "warnings": [{"ticker": None, "message": f"Scoring failed: {e}"}],
+        }
+
+    scores_by_ticker = {hs["ticker"]: hs for hs in scores_result["holdings_scores"]}
+    for holding in holdings_analysis:
+        # Adds a key; never overwrites existing keys
+        holding["score"] = scores_by_ticker.get(holding["ticker"])
 
     return {
         "report_date": report_date,
@@ -584,4 +776,6 @@ async def get_portfolio_performance(
         "top_performers": top_performers,
         "bottom_performers": bottom_performers,
         "fx_warnings": fx_warnings[:10],  # Limit warnings
+        "portfolio_score": scores_result["portfolio_score"],
+        "scoring_warnings": scores_result["warnings"][:10],
     }

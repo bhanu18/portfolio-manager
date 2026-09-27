@@ -32,8 +32,9 @@ export function ForgotPasswordPage() {
   };
 
   return (
-    <div className="auth-layout">
+    <div className="mod auth-layout">
       <div className="auth-card">
+        <span className="auth-card__brand">Portfolio</span>
         <h1 className="auth-card__title">Reset your password</h1>
 
         {done ? (

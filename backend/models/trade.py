@@ -27,6 +27,11 @@ class Trade(BaseModel):
     currency: str  # Default currency for the trade, can be overridden
     group_id: int  # The group ID to which this trade belongs
 
+    # Row bookkeeping, set by the database — when this record was created and
+    # last changed. Unrelated to trade_date, which is when the trade happened.
+    created_at: datetime
+    updated_at: datetime
+
 
 class TradeCreate(BaseModel):
     trade_type: Literal["buy", "sell"]

@@ -154,6 +154,11 @@ export interface Trade {
   price_per_unit: number;
   currency: string;
   group_id: number;
+
+  // Row bookkeeping set by the backend: when the record was created and last
+  // changed. Distinct from `trade_date`, which is when the trade happened.
+  created_at: string; // ISO datetime
+  updated_at: string; // ISO datetime
 }
 
 // ---------------------------------------------------------------------------
@@ -185,6 +190,10 @@ export interface RawTrade {
   // Who created this trade — used for edit/delete permission checks.
   created_by_user_id?: number | null;
   created_by_user_name?: string | null; // optional, for display
+  // Row bookkeeping. Optional here: a raw payload from an endpoint that
+  // predates the columns simply won't carry them.
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Shape returned by GET /trades/symbol/{symbol} — note this swaps
@@ -196,12 +205,17 @@ export interface TradeResponse {
   trade_date: string;
   quantity: number;
   price_per_unit: number;
-  currency?: string; // e.g. "USD", "THB" — present on GET /trades/symbol/{symbol}
+  currency: string; // e.g. "USD", "THB" — the trade's own currency
   group_name?: string;
   group_id?: number; // may be present — needed for group_admin permission check
   // Who created this trade — used for edit/delete permission checks.
   created_by_user_id?: number | null;
   created_by_user_name?: string | null; // optional, for display
+
+  // Row bookkeeping set by the backend: when the record was created and last
+  // changed. Distinct from `trade_date`, which is when the trade happened.
+  created_at: string; // ISO datetime
+  updated_at: string; // ISO datetime
 }
 
 export interface TradeCreatePayload {

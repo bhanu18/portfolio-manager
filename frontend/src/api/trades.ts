@@ -34,6 +34,11 @@ function normalizeTrade(raw: RawTrade): Trade {
     price_per_unit: raw.price_per_unit,
     currency: raw.currency,
     group_id: raw.group_id ?? 0,
+    // Every /trades endpoint returns these now. The fallback matches how the
+    // migration backfilled pre-existing rows, so a payload from an older
+    // backend still sorts sensibly instead of showing "Invalid Date".
+    created_at: raw.created_at ?? raw.trade_date,
+    updated_at: raw.updated_at ?? raw.created_at ?? raw.trade_date,
   };
 }
 

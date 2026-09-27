@@ -6,7 +6,10 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "node_modules", "vite.config.js", "vite.config.d.ts"] },
+  // `.claude` holds agent scratch space, including git worktrees that contain a
+  // full second copy of this project. Linting those breaks the run outright:
+  // typescript-eslint sees two candidate tsconfig roots and refuses to parse.
+  { ignores: [".claude", "dist", "node_modules", "vite.config.js", "vite.config.d.ts"] },
   {
     files: ["**/*.{ts,tsx}"],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

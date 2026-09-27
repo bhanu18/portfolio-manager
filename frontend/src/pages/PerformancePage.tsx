@@ -474,13 +474,16 @@ function PerformanceResults({
           <dl className="detail-list">
             <div className="detail-list__row">
               <dt>Benchmark ({s.benchmark_ticker})</dt>
-              <dd>{(s.benchmark_return * 100).toFixed(2)}%</dd>
+              {/* Already a percent from the backend (reports.py computes
+                  ((end / start) - 1) * 100), so it must not be scaled again. */}
+              <dd>{s.benchmark_return.toFixed(2)}%</dd>
             </div>
             <div className="detail-list__row">
               <dt>Alpha</dt>
               <dd className={alphaPositive ? "pnl pnl--positive" : "pnl pnl--negative"}>
                 {alphaPositive ? "+" : ""}
-                {(alpha * 100).toFixed(2)}%
+                {/* Percent already: alpha = total_unrealized_gain_loss_pct - benchmark_return. */}
+                {alpha.toFixed(2)}%
               </dd>
             </div>
             <div className="detail-list__row">

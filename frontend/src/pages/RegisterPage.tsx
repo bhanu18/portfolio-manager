@@ -44,8 +44,9 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="auth-layout">
+    <div className="mod auth-layout">
       <div className="auth-card">
+        <span className="auth-card__brand">Portfolio</span>
         <h1 className="auth-card__title">Create your account</h1>
         <p className="auth-card__subtitle">Start tracking your portfolio.</p>
 

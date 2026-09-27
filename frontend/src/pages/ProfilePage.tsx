@@ -137,7 +137,9 @@ export function ProfilePage() {
             <div className="detail-list__row">
               <dt>Status</dt>
               <dd>
-                <span className={`badge ${user.is_active ? "badge--buy" : "badge--sell"}`}>
+                {/* An account status is not a gain, so it must not borrow the buy green;
+                    a healthy account stays quiet and only a problem takes the accent. */}
+                <span className={`badge ${user.is_active ? "badge--muted" : "badge--sell"}`}>
                   {user.is_active ? "Active" : "Inactive"}
                 </span>
               </dd>

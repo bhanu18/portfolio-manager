@@ -22,7 +22,9 @@ export function Modal({ open, title, onClose, children, footer }: ModalProps) {
   if (!open) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    // `mod` scopes the Modernist system to the dialog itself, so a modal is
+    // styled the same wherever it is mounted — including outside <Layout>.
+    <div className="mod modal-overlay" onClick={onClose}>
       <div
         className="modal"
         role="dialog"

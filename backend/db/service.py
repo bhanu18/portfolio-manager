@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -132,6 +133,20 @@ async def get_trades_by_asset_id(db: AsyncSession, asset_id: int):
     return result.scalars().all()
 
 
+async def get_trades_by_asset_id_for_groups(
+    db: AsyncSession, asset_id: int, group_ids: Sequence[int]
+):
+    """Fetches trades for an asset, restricted to the given groups."""
+    if not group_ids:
+        return []
+    query = select(orm_models.Trade).where(
+        orm_models.Trade.asset_id == asset_id,
+        orm_models.Trade.group_id.in_(group_ids),
+    )
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
 async def get_all_trades(db: AsyncSession, skip: int = 0, limit: int = 100):
     """Fetches all trades with pagination."""
     query = select(orm_models.Trade).offset(skip).limit(limit)
@@ -174,6 +189,22 @@ async def get_trades_by_group_id(db: AsyncSession, group_id: int, skip: int = 0,
     query = (
         select(orm_models.Trade)
         .where(orm_models.Trade.group_id == group_id)
+        .offset(skip)
+        .limit(limit)
+    )
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
+async def get_trades_by_group_ids(
+    db: AsyncSession, group_ids: Sequence[int], skip: int = 0, limit: int = 100
+):
+    """Fetches all trades belonging to any of the given groups, with pagination."""
+    if not group_ids:
+        return []
+    query = (
+        select(orm_models.Trade)
+        .where(orm_models.Trade.group_id.in_(group_ids))
         .offset(skip)
         .limit(limit)
     )

@@ -37,6 +37,8 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 ## Conventions & gotchas
 - When changing a backend response model, update `frontend/src/types/index.ts` and the matching `frontend/src/api/*.ts` in the same change.
 - Login is form-encoded (`username`=email), not JSON.
+- Import scripts are not idempotent: they always INSERT trades, so re-running duplicates them. `import_portfolio_history.py` has `--dry-run`; `import_csv.py` does not.
+- MySQL 8 defaults to `caching_sha2_password`; aiomysql needs `cryptography` installed or login fails with a 500 at connect time.
 - `/assets/{symbol}` and `/assets/{asset_id}` share a path shape — frontend uses numeric IDs.
 - CORS: set `CORS_ORIGINS` in `backend/.env` (default `http://localhost:5173`).
 - Deployment: only `backend/Dockerfile` + `.dockerignore`. CI (`.github/workflows/ci.yml`) runs lint/types/tests/build; no CD.
@@ -60,5 +62,4 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
   - Tests only cover auth; add trades/reports/groups tests.
   - README screenshots placeholder (docs/screenshots/).
   - Alembic downgrade of b46451958cb3 fails; `datetime.utcnow()` (DTZ003 ignored) and `(str, Enum)` (UP042 ignored) to revisit.
-  - `scripts/import_portfolio_history.py` needs openpyxl, which is not in requirements.
   - GitHub repo is bhanu18/portfolio-manager (renamed from portfolio_tracker); origin and badges updated.

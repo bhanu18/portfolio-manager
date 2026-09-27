@@ -11,9 +11,17 @@ class TradeResponse(BaseModel):
     instead of its ID.
     """
 
-    id: str
+    # The trades table's integer PK. This was `str`, which pydantic v2 refuses to
+    # coerce from an int, so every request to GET /trades/symbol/{symbol} failed
+    # validation with a 500.
+    id: int
     symbol: str  # <-- The key difference: we show symbol
     trade_type: Literal["buy", "sell"]
     trade_date: datetime
     quantity: float
     price_per_unit: float
+    currency: str  # The trade's own currency, which need not be the asset's.
+
+    # Row bookkeeping — see models.trade.Trade.
+    created_at: datetime
+    updated_at: datetime

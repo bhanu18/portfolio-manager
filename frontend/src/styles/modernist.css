@@ -1,0 +1,1258 @@
+/* ===========================================================================
+   Modernist — design system for the Overview page.
+
+   Source: docs/frontend/Portfolio Dashboard (Modernist).dc.html
+   (claude.ai/design project edebfe05-1111-419a-b93c-a450c00c8379)
+
+   NOTE: the upstream `_ds/modernist-461cfbf2-.../styles.css` was never saved
+   locally and could not be fetched. The token VALUES below are reconstructed
+   from the literal hexes the .dc.html hard-codes in its canvas chrome
+   (#201e1d ink, #ec3013 accent, #f3f2f2 paper, #eae9e9, #605d5d, #d9d7d6) plus
+   the usage of each token in the design. Swap this :root-equivalent block for
+   the real one once the bundle is available — every consumer uses the token
+   names, so nothing else has to change.
+
+   Everything is scoped under `.mod` on purpose: the rest of the app is dark
+   themed and already owns global `.btn` / `.table` / `.input`, and this system
+   re-uses those same class names with different meanings.
+   =========================================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap");
+
+.mod {
+  /* --- Palette ------------------------------------------------------------ */
+  --color-bg: #f3f2f2;
+  --color-surface: #eae9e9;
+  --color-text: #201e1d;
+  --color-divider: #cdcbca;
+
+  --color-neutral-100: #eae9e9;
+  --color-neutral-200: #dedcdc;
+  --color-neutral-300: #c9c7c6;
+  --color-neutral-400: #a8a5a4;
+  --color-neutral-500: #8a8786;
+  --color-neutral-600: #737070;
+  --color-neutral-700: #605d5d;
+  --color-neutral-800: #423f3f;
+  --color-neutral-900: #201e1d;
+
+  --color-accent: #ec3013;
+  --color-accent-100: #fdeae6;
+  --color-accent-300: #f7b3a5;
+  --color-accent-700: #c62510;
+  --color-accent-800: #9e1e0d;
+
+  /* --- Spacing ------------------------------------------------------------ */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+
+  /* --- Type --------------------------------------------------------------- */
+  --font-heading: Archivo, system-ui, sans-serif;
+  --font-body: Archivo, system-ui, sans-serif;
+
+  font-family: var(--font-body);
+  background: var(--color-bg);
+  color: var(--color-text);
+  /* Zero radius everywhere — Modernist rule. */
+}
+
+.mod *,
+.mod *::before,
+.mod *::after {
+  box-sizing: border-box;
+  border-radius: 0;
+}
+
+/* --- Headings -------------------------------------------------------------
+   Flush left, heavy, tight. h6 is the small all-caps eyebrow used above every
+   figure in the design. */
+
+.mod h1,
+.mod h2,
+.mod h3,
+.mod h4,
+.mod h5,
+.mod h6 {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.mod h2 {
+  font-size: 28px;
+  line-height: 1.15;
+}
+
+.mod h4 {
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.mod h6 {
+  font-size: 10.5px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.mod p {
+  text-wrap: pretty;
+}
+
+/* --- Figures ---------------------------------------------------------------
+   `.fig` is the tabular-numerals class the design puts on every number so
+   columns of figures align. */
+
+.mod .fig,
+.fig {
+  font-family: Archivo, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Nav ------------------------------------------------------------------- */
+
+.mod .nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-8);
+  border-bottom: 2px solid var(--color-text);
+  background: var(--color-bg);
+}
+
+.mod .nav-brand {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-right: var(--space-4);
+}
+
+.mod .nav a {
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-neutral-700);
+  text-decoration: none;
+  padding: var(--space-1) 0;
+  border-bottom: 2px solid transparent;
+}
+
+.mod .nav a:hover {
+  color: var(--color-text);
+}
+
+.mod .nav a[aria-current="page"] {
+  color: var(--color-text);
+  font-weight: 800;
+  border-bottom-color: var(--color-accent);
+}
+
+/* Push everything after the last nav link to the right. */
+.mod .nav > .nav-spacer {
+  flex: 1;
+}
+
+/* The brand is a link (it goes home), but it is not one of the section links:
+   full-strength ink, never an active underline. */
+.mod .nav a.nav-brand {
+  color: var(--color-text);
+  border-bottom: none;
+}
+
+.mod .nav-user {
+  font-size: 12px;
+  color: var(--color-neutral-700);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mod .nav-user__badge {
+  font-size: 9.5px;
+}
+
+/* --- Buttons --------------------------------------------------------------- */
+
+.mod .btn {
+  font-family: var(--font-heading);
+  font-size: 12.5px;
+  font-weight: 800;
+  line-height: 1;
+  padding: var(--space-2) var(--space-4);
+  border: 2px solid transparent;
+  background: none;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mod .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.mod .btn-primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.mod .btn-primary:hover:not(:disabled) {
+  background: var(--color-accent-700);
+  border-color: var(--color-accent-700);
+}
+
+.mod .btn-secondary {
+  border-color: var(--color-text);
+  color: var(--color-text);
+}
+
+.mod .btn-secondary:hover:not(:disabled) {
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+
+.mod .btn-ghost {
+  color: var(--color-neutral-700);
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+}
+
+.mod .btn-ghost:hover:not(:disabled) {
+  color: var(--color-text);
+}
+
+/* --- Tags ------------------------------------------------------------------ */
+
+.mod .tag {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+
+.mod .tag-neutral {
+  background: var(--color-neutral-200);
+  color: var(--color-neutral-800);
+}
+
+.mod .tag-outline {
+  background: none;
+  color: var(--color-text);
+  box-shadow: inset 0 0 0 2px var(--color-divider);
+}
+
+.mod .tag-accent {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+/* --- Table ------------------------------------------------------------------
+   Rules do the organising: a 2px rule under the header, 1px between rows, no
+   zebra, no outer box. */
+
+.mod .table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.mod .table th {
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-neutral-700);
+  text-align: left;
+  padding: var(--space-2) var(--space-3) var(--space-2) 0;
+  border-bottom: 2px solid var(--color-text);
+}
+
+.mod .table td {
+  padding: var(--space-3) var(--space-3) var(--space-3) 0;
+  border-bottom: 1px solid var(--color-divider);
+  vertical-align: top;
+}
+
+.mod .table th:last-child,
+.mod .table td:last-child {
+  padding-right: 0;
+}
+
+.mod .table tbody tr:last-child td {
+  border-bottom: 2px solid var(--color-text);
+}
+
+/* --- Inputs ------------------------------------------------------------------ */
+
+.mod .input {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 2px solid var(--color-divider);
+  padding: var(--space-2) var(--space-3);
+}
+
+.mod .input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.mod hr {
+  border: none;
+  border-top: 2px solid var(--color-divider);
+  margin: 0;
+}
+
+.mod a {
+  color: var(--color-text);
+}
+
+/* --- Motion ------------------------------------------------------------------
+   Skeletons pulse in value only — no shimmer gradient, no rounded pills. */
+
+@keyframes mod-sk {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes mod-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mod .sk {
+  background: var(--color-neutral-300);
+  animation: mod-sk 1.4s ease-in-out infinite;
+  display: block;
+}
+
+.mod .sk-faint {
+  background: var(--color-neutral-200);
+}
+
+.mod .spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-accent-300);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: mod-spin 0.7s linear infinite;
+  flex: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mod .sk,
+  .mod .spinner {
+    animation: none;
+  }
+}
+
+/* --- Forms ------------------------------------------------------------------
+   The .dc.html has no form screens, so these are designed to the system's own
+   rules rather than copied from it: labels become the same small caps eyebrow
+   the stat blocks use, inputs are square with a 2px rule, and the accent is
+   spent only on focus and on errors. */
+
+.mod .field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.mod .field__label {
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-neutral-700);
+}
+
+.mod .field__input {
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 2px solid var(--color-divider);
+  border-radius: 0;
+  padding: var(--space-2) var(--space-3);
+  width: 100%;
+}
+
+.mod .field__input::placeholder {
+  color: var(--color-neutral-400);
+}
+
+.mod .field__input:disabled,
+.mod .field__input[readonly] {
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-700);
+}
+
+/* Errors carry a heavier rule as well as the accent, so the state survives
+   without colour. */
+.mod .field__input[aria-invalid="true"] {
+  border-color: var(--color-accent);
+}
+
+.mod .field__error {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-accent-800);
+}
+
+.mod .field__hint {
+  font-size: 11.5px;
+  color: var(--color-neutral-700);
+}
+
+.mod .field__hint--ok {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.mod .field__hint--warn {
+  color: var(--color-accent-800);
+}
+
+.mod .input-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* Scoped to modal bodies: the 520px panel can't fit index.css's 260px
+   minimum as two columns, and the other pages' grids are left alone. */
+.mod .modal__body .grid {
+  gap: var(--space-4);
+}
+
+.mod .modal__body .grid--2 {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+/* Native selects keep the platform arrow but lose the platform chrome. */
+.mod select.field__input {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-text) 50%),
+    linear-gradient(135deg, var(--color-text) 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) calc(50% + 1px),
+    calc(100% - 10px) calc(50% + 1px);
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+  padding-right: var(--space-8);
+}
+
+/* --- Auth -------------------------------------------------------------------
+   The sign-in and sign-up screens. Also net-new: a single flush-left panel on
+   paper, with the wordmark above it so the page reads as the same product as
+   the nav. */
+
+.mod.auth-layout {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-8) var(--space-4);
+  background: var(--color-bg);
+}
+
+.mod .auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--color-bg);
+  border: 2px solid var(--color-text);
+  border-radius: 0;
+  box-shadow: none;
+  padding: var(--space-8);
+}
+
+.mod .auth-card__brand {
+  display: block;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-neutral-700);
+  margin-bottom: var(--space-6);
+}
+
+.mod .auth-card__title {
+  font-size: 28px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--space-2);
+}
+
+.mod .auth-card__subtitle {
+  color: var(--color-neutral-700);
+  margin: 0 0 var(--space-6);
+  font-size: 13px;
+}
+
+.mod .auth-card__links {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 2px solid var(--color-divider);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: 12.5px;
+  color: var(--color-neutral-700);
+  text-align: left;
+}
+
+.mod .auth-card__links a {
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+/* --- Modal -------------------------------------------------------------------
+   Modal renders its own `.mod`, so every dialog in the app is Modernist
+   wherever it is mounted. Flat scrim, square panel, 2px rules separating
+   header, body and footer. */
+
+.mod.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--color-neutral-900) 45%, transparent);
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  z-index: 50;
+}
+
+.mod .modal {
+  background: var(--color-bg);
+  border: 2px solid var(--color-text);
+  border-radius: 0;
+  box-shadow: none;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.mod .modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 2px solid var(--color-text);
+}
+
+.mod .modal__title {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.mod .modal__close {
+  background: none;
+  border: none;
+  color: var(--color-neutral-700);
+  font-size: 22px;
+  line-height: 1;
+  padding: 0 var(--space-1);
+  cursor: pointer;
+}
+
+.mod .modal__close:hover {
+  color: var(--color-accent);
+}
+
+.mod .modal__body {
+  padding: var(--space-6);
+  overflow-y: auto;
+}
+
+/* The last field in a modal body shouldn't push the footer rule away. */
+.mod .modal__body .field:last-child,
+.mod .modal__body form > :last-child {
+  margin-bottom: 0;
+}
+
+.mod .modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6);
+  border-top: 2px solid var(--color-divider);
+}
+
+/* ===========================================================================
+   Pages — Reports (hub, Valuation, Performance) and Profile
+   ---------------------------------------------------------------------------
+   These pages keep their BEM class names from index.css; what follows is the
+   Modernist reading of each one, so they are designed rather than patched.
+   Ported out of the legacy bridge on 2026-09-19.
+   =========================================================================== */
+
+/* --- Page shell ----------------------------------------------------------- */
+
+.mod .page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.mod .page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-4);
+  border-bottom: 2px solid var(--color-text);
+}
+
+.mod .page__title {
+  font-family: var(--font-heading);
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.mod .page__actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* --- Text ------------------------------------------------------------------ */
+
+.mod .muted {
+  color: var(--color-neutral-700);
+}
+
+.mod .small {
+  font-size: 12.5px;
+}
+
+/* Every figure in a table aligns on its digits. */
+.mod .num,
+.mod .table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mod .link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 800;
+  color: var(--color-text);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.mod .link-button:hover {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+/* --- Cards -----------------------------------------------------------------
+   Modernist organises with rules, not fills: a card is a 2px outline on the
+   page ground, never a raised panel. */
+
+.mod .card {
+  background: none;
+  border: 2px solid var(--color-divider);
+  border-radius: 0;
+  box-shadow: none;
+  padding: var(--space-6);
+}
+
+.mod .card__title {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--space-4);
+}
+
+/* Subtitles are section labels, so they take the same small caps eyebrow as
+   the stat blocks rather than reading as a second heading. */
+.mod .card__subtitle {
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-neutral-700);
+  margin: 0;
+}
+
+.mod .card__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding-top: var(--space-3);
+  border-top: 2px solid var(--color-divider);
+}
+
+.mod .card__section-header .card__subtitle {
+  margin-top: 0;
+}
+
+/* --- Detail lists ----------------------------------------------------------
+   Label left, figure right, one hairline per row — the same shape as the
+   allocation and movers lists on the overview. */
+
+.mod .detail-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.mod .detail-list__row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.mod .detail-list__row:last-child {
+  border-bottom: none;
+}
+
+.mod .detail-list dt {
+  color: var(--color-neutral-700);
+  font-size: 12.5px;
+}
+
+.mod .detail-list dd {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Tables ----------------------------------------------------------------
+   `.mod .table` (above) already gives the Modernist table. The wrap keeps the
+   horizontal scroll but drops its box, so the rules do the work. */
+
+.mod .table-wrap {
+  overflow-x: auto;
+  border: none;
+  border-radius: 0;
+}
+
+.mod .row-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+/* --- Badges & chips --------------------------------------------------------
+   Square, like the design's own tags. */
+
+.mod .badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0;
+  padding: var(--space-1) var(--space-2);
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mod .badge--muted {
+  background: var(--color-neutral-200);
+  color: var(--color-neutral-800);
+}
+
+.mod .chip-list {
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.mod .chip {
+  border-radius: 0;
+  background: none;
+  border: 2px solid var(--color-divider);
+  padding: var(--space-1) var(--space-3);
+  font-size: 12.5px;
+  gap: var(--space-2);
+}
+
+.mod .chip__meta {
+  font-size: 11px;
+  color: var(--color-neutral-700);
+}
+
+/* --- Empty & error states --------------------------------------------------
+   Flush left with a solid rule, matching the design's own empty overview
+   (option 2b) rather than the dashed, centred box index.css draws. */
+
+.mod .empty-state,
+.mod .error-state {
+  text-align: left;
+  align-items: flex-start;
+  border: 2px solid var(--color-divider);
+  border-radius: 0;
+  padding: var(--space-8);
+  gap: var(--space-3);
+}
+
+.mod .error-state__message {
+  color: var(--color-accent-800);
+  font-weight: 600;
+  margin: 0;
+}
+
+/* --- Report tabs -----------------------------------------------------------
+   The same mechanism as the top nav: a rule under the row, and the active tab
+   claims the accent. No pill, no fill, no rounded shoulders. */
+
+.mod .report-tabs {
+  display: flex;
+  gap: var(--space-6);
+  border-bottom: 2px solid var(--color-divider);
+  padding-bottom: 0;
+}
+
+.mod .report-tab {
+  padding: 0 0 var(--space-3);
+  margin-bottom: -2px;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-neutral-700);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  text-decoration: none;
+}
+
+.mod .report-tab:hover {
+  color: var(--color-text);
+  background: none;
+}
+
+.mod .report-tab--active {
+  color: var(--color-text);
+  font-weight: 800;
+  background: none;
+  border-bottom-color: var(--color-accent);
+}
+
+/* --- Valuation card -------------------------------------------------------- */
+
+.mod .valuation-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 2px solid var(--color-divider);
+  margin-bottom: var(--space-4);
+}
+
+.mod .valuation-card__symbol {
+  font-family: var(--font-heading);
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Performance progress -------------------------------------------------- */
+
+.mod .perf-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: var(--space-8);
+  gap: var(--space-3);
+  border: 2px solid var(--color-divider);
+}
+
+/* --- Score display ---------------------------------------------------------
+   index.css draws the grade as a round chip on a green-to-red ramp. Modernist
+   is a mono red-on-ground system, so that ramp can't survive: grades become
+   square, strong ones read as solid ink and weak ones take the accent — the
+   same rule the overview and asset detail already use, and the same one that
+   keeps the meaning legible without colour. */
+
+.mod .score-display__grade {
+  width: 30px;
+  height: 30px;
+  border-radius: 0;
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.mod .score-display__grade--a,
+.mod .score-display__grade--b {
+  background-color: var(--color-text);
+  color: var(--color-bg);
+}
+
+.mod .score-display__grade--c {
+  background-color: var(--color-neutral-200);
+  color: var(--color-neutral-900);
+}
+
+.mod .score-display__grade--d,
+.mod .score-display__grade--f {
+  background-color: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.mod .score-display__composite-value {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.mod .score-display__composite-max,
+.mod .score-display__sample,
+.mod .score-display__metric-label {
+  color: var(--color-neutral-700);
+}
+
+.mod .score-display__metrics-title {
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-neutral-700);
+}
+
+.mod .score-display__metric {
+  border-radius: 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.mod .score-display__metric-value {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.mod .score-display__details {
+  border-top: 2px solid var(--color-divider);
+}
+
+.mod .score-display__warning,
+.mod .score-display__data-quality {
+  color: var(--color-accent-800);
+  font-size: 11.5px;
+}
+
+/* --- Scoring warnings banner ----------------------------------------------- */
+
+.mod .scoring-warnings-banner {
+  background: none;
+  border: 2px solid var(--color-divider);
+  border-radius: 0;
+  color: var(--color-text);
+}
+
+.mod .scoring-warnings-banner__header {
+  background: none;
+  border-bottom: 2px solid var(--color-divider);
+  font-family: var(--font-heading);
+  font-weight: 800;
+}
+
+.mod .scoring-warnings-banner__dismiss {
+  color: var(--color-neutral-700);
+}
+
+.mod .scoring-warnings-banner__dismiss:hover {
+  color: var(--color-accent);
+}
+
+/* --- Lookback selector ------------------------------------------------------ */
+
+.mod .lookback-selector__label {
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-neutral-700);
+}
+
+.mod .lookback-selector__select {
+  font-family: var(--font-body);
+  font-size: 13px;
+  border: 2px solid var(--color-divider);
+  border-radius: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  padding: var(--space-2) var(--space-3);
+}
+
+.mod .lookback-selector__note,
+.mod .lookback-selector__loading {
+  font-size: 11.5px;
+  color: var(--color-neutral-700);
+}
+
+/* --- Back link -------------------------------------------------------------
+   Reads as a return path, not a button: the accent is spent on hover only. */
+
+.mod .back-link {
+  display: inline-block;
+  font-family: var(--font-heading);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--color-neutral-700);
+  text-decoration: none;
+}
+
+.mod .back-link:hover {
+  color: var(--color-accent);
+}
+
+/* --- Gain / loss -----------------------------------------------------------
+   The design is explicit that this system cannot use a green/red pair: it is
+   mono red-on-ground, so gains stay in ink and only losses take the accent,
+   with every figure carrying an explicit sign so the read never depends on
+   colour. OverviewPage and HoldingDetailPage already follow this; applying it
+   here stops the same figure being two different colours on two pages. */
+
+.mod .pnl {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.mod .pnl--positive {
+  color: var(--color-text);
+}
+
+.mod .pnl--negative {
+  color: var(--color-accent);
+}
+
+/* ===========================================================================
+   Modifier map
+   ---------------------------------------------------------------------------
+   Every page is now ported: the sections above are the real Modernist
+   components. What remains here is the mapping from index.css's own token
+   names and BEM modifiers (`--color-primary`, `.btn--ghost`, `.alert--error`,
+   `.badge--buy`) onto Modernist values, because the JSX across the app still
+   uses those class names.
+
+   The rules are all `.mod .foo` (0,2,0), so they beat the matching
+   `.foo` / `.foo--modifier` rules in index.css wherever the two collide.
+
+   This is no longer scaffolding waiting on a port — it goes away only if the
+   BEM modifier names are themselves retired in favour of the design's own
+   (`.btn-primary`, `.tag`), which would mean touching every call site.
+   =========================================================================== */
+
+.mod {
+  /* --- Old theme tokens, Modernist values ---------------------------------
+     --color-bg / --color-surface / --color-text are already set above; these
+     are the rest of index.css's :root block. */
+  --color-surface-2: var(--color-neutral-200);
+  --color-border: var(--color-divider);
+  --color-text-muted: var(--color-neutral-700);
+
+  --color-primary: var(--color-accent);
+  --color-primary-hover: var(--color-accent-700);
+  --color-danger: var(--color-accent-700);
+  --color-danger-hover: var(--color-accent-800);
+
+  /* Gain/loss on ported pages is ink/accent (see the Gain / loss section
+     above) — the design forbids a green/red pair. These tokens remain for
+     everything else that still reads them (trade-type badges, success
+     alerts), darkened from the dark theme to hold contrast on paper. */
+  --color-success: #1c7a52;
+  --color-warn: #8a5a00;
+  --color-buy: #1c7a52;
+  --color-sell: #c62510;
+
+  /* Modernist is flat: square corners, no drop shadows. */
+  --radius: 0;
+  --radius-sm: 0;
+  --shadow: none;
+  --font: var(--font-body);
+}
+
+/* --- Shell ---------------------------------------------------------------- */
+
+.mod.app-shell {
+  background: var(--color-bg);
+}
+
+/* --- Buttons --------------------------------------------------------------
+   `.mod .btn` (above) strips the legacy button back to the Modernist base, so
+   each legacy modifier needs its Modernist equivalent. These map 1:1 onto the
+   design's own button variants. */
+
+.mod .btn--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.mod .btn--primary:hover:not(:disabled) {
+  background: var(--color-accent-700);
+  border-color: var(--color-accent-700);
+}
+
+.mod .btn--secondary {
+  background: none;
+  border-color: var(--color-text);
+  color: var(--color-text);
+}
+
+.mod .btn--secondary:hover:not(:disabled) {
+  background: var(--color-neutral-200);
+}
+
+.mod .btn--ghost {
+  background: none;
+  border-color: transparent;
+  color: var(--color-neutral-700);
+}
+
+.mod .btn--ghost:hover:not(:disabled) {
+  background: none;
+  color: var(--color-text);
+}
+
+/* Danger is outlined, not filled, so it never reads as the primary action —
+   the difference is structural (fill vs rule) rather than a shade of the same
+   red, which would be invisible to anyone who can't separate the two. It
+   inverts to a solid fill on hover, once the pointer is committed to it. */
+.mod .btn--danger {
+  background: none;
+  border-color: var(--color-accent-800);
+  color: var(--color-accent-800);
+}
+
+.mod .btn--danger:hover:not(:disabled) {
+  background: var(--color-accent-800);
+  border-color: var(--color-accent-800);
+  color: var(--color-bg);
+}
+
+.mod .btn--sm {
+  font-size: 11px;
+  padding: var(--space-1) var(--space-3);
+}
+
+.mod .btn--block {
+  width: 100%;
+  justify-content: center;
+}
+
+/* --- Alerts & inline states ------------------------------------------------
+   index.css hard-codes pale-on-dark text here, which is invisible on paper. */
+
+.mod .alert {
+  border-width: 2px;
+}
+
+.mod .alert--error {
+  background: var(--color-accent-100);
+  border-color: var(--color-accent-300);
+  color: var(--color-accent-800);
+}
+
+.mod .alert--success {
+  background: none;
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.mod .alert--info {
+  background: var(--color-neutral-100);
+  border-color: var(--color-divider);
+  color: var(--color-text);
+}
+
+.mod .field__error {
+  color: var(--color-accent-800);
+}
+
+/* --- Badges ---------------------------------------------------------------- */
+
+.mod .badge--admin {
+  background: none;
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
+}
+
+.mod .badge--buy {
+  background: none;
+  border: 1px solid var(--color-buy);
+  color: var(--color-buy);
+}
+
+.mod .badge--sell {
+  background: none;
+  border: 1px solid var(--color-sell);
+  color: var(--color-sell);
+}
+
+/* --- Focus rings ----------------------------------------------------------- */
+
+.mod .field__input:focus,
+.mod .lookback-selector__select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: none;
+}

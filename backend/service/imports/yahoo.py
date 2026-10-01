@@ -21,7 +21,7 @@ REQUIRED = ("Symbol", "Trade Date", "Purchase Price", "Quantity", "Transaction T
 class YahooParser:
     code = "yahoo"
     label = "Yahoo Finance"
-    # scripts/import_csv.py wrote refs under "csv"; keep that so trades imported
+    # The original CSV importer wrote refs under "csv"; keep that so trades imported
     # before the multi-broker refactor are updated rather than duplicated.
     ref_prefix = "csv"
 

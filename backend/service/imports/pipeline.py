@@ -1,7 +1,7 @@
 """Shared import pipeline: resolve assets, then upsert trades idempotently.
 
-Used by both the CLI (scripts/import_trades.py) and the API endpoint, so a file
-imported either way produces exactly the same rows.
+Kept separate from parsing so every broker's file goes through the same
+asset resolution and upsert logic.
 """
 
 from __future__ import annotations

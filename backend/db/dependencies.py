@@ -9,6 +9,7 @@ from db.orm_models import Group, GroupMemberRole, User, UserRole
 from db.session import AsyncSessionLocal
 from models import users as user_schema
 from models.token import TokenData
+from service.security import fingerprint_matches_password
 
 # This object is what FastAPI uses to find the token in the request's header.
 # The tokenUrl points to your login endpoint.
@@ -39,7 +40,8 @@ async def get_current_user(
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         # The 'sub' (subject) of our token is the user's email
         email = payload.get("sub")
-        if not isinstance(email, str):
+        fingerprint = payload.get("pwd")
+        if not isinstance(email, str) or not isinstance(fingerprint, str):
             raise credentials_exception
         TokenData(email=email)  # validate token payload shape
     except JWTError as e:
@@ -48,7 +50,8 @@ async def get_current_user(
 
     # Fetch the user from the database
     user = await service.get_user_by_email(db, email=email)
-    if user is None:
+    # A token issued before the last password change is no longer valid
+    if user is None or not fingerprint_matches_password(fingerprint, user.hashed_password):
         raise credentials_exception
 
     return user

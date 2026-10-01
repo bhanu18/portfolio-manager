@@ -126,13 +126,6 @@ async def create_trade(db: AsyncSession, asset_id: int, trade_data: dict):
     return db_trade
 
 
-async def get_trades_by_asset_id(db: AsyncSession, asset_id: int):
-    """Fetches all trades for a specific asset ID."""
-    query = select(orm_models.Trade).where(orm_models.Trade.asset_id == asset_id)
-    result = await db.execute(query)
-    return result.scalars().all()
-
-
 async def get_trades_by_asset_id_for_groups(
     db: AsyncSession, asset_id: int, group_ids: Sequence[int]
 ):

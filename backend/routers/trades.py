@@ -36,17 +36,24 @@ async def read_trades_for_group(
 
 
 @router.get("/symbol/{symbol}", response_model=list[TradeResponse])
-async def read_trades_by_symbol(symbol: str, db: AsyncSession = Depends(get_db)):
+async def read_trades_by_symbol(
+    symbol: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: user_schema.User = Depends(get_current_active_user),
+):
     """
-    Retrieve all trades for a specific asset by its symbol.
+    Retrieve the current user's trades for a specific asset by its symbol.
+    Only trades in groups the user belongs to are returned.
     """
     # 1. Find the asset to get its ID
     db_asset = await service.get_asset_by_symbol(db, symbol=symbol.upper())
     if not db_asset:
         raise HTTPException(status_code=404, detail=f"Asset with symbol '{symbol}' not found.")
 
-    # 2. Fetch the trades using the asset's ID
-    trades = await service.get_trades_by_asset_id(db, asset_id=db_asset.id)
+    # 2. Fetch the trades using the asset's ID, limited to the user's groups
+    trades = await service.get_trades_by_asset_id_for_groups(
+        db, asset_id=db_asset.id, group_ids=[group.id for group in current_user.groups]
+    )
     if not trades:
         raise HTTPException(status_code=404, detail=f"No trades found for symbol '{symbol}'.")
 

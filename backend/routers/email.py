@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-from db.dependencies import get_current_active_regular_user
+from db.dependencies import get_current_active_admin_user
 from models import users as user_schema
 from models.email import EmailRequest, EmailResponse
 from service.email import email_service
@@ -18,13 +18,13 @@ limiter = Limiter(key_func=get_remote_address)
 async def send_email(
     request: Request,
     email_data: EmailRequest,
-    current_user: user_schema.User = Depends(get_current_active_regular_user),
+    current_user: user_schema.User = Depends(get_current_active_admin_user),
 ):
     """
     Send an email to one or more recipients.
 
-    **Authentication Required:** This endpoint requires a valid JWT token and USER role.
-    Only users with USER role can access this endpoint (ADMIN users are excluded).
+    **Authentication Required:** Admin only. Registration is open, so letting any
+    user send arbitrary mail would turn the configured SMTP account into a relay.
 
     **Rate Limiting:** This endpoint is rate-limited to 10 emails per hour per IP address
     to prevent spam and abuse. If you exceed this limit, you'll receive a 429 error.
@@ -67,13 +67,9 @@ async def send_email(
         )
         return EmailResponse(**result)
 
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
     except Exception as e:
+        # Don't echo SMTP/config errors back to the client
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to send email: {e!s}",
+            detail="Failed to send email",
         ) from e

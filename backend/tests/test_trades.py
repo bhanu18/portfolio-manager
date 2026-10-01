@@ -2,7 +2,8 @@
 
 Covers the row-bookkeeping timestamps (created_at / updated_at) and the
 integer `id` — TradeResponse declared `id: str`, which pydantic v2 will not
-coerce from an int, so every request to this endpoint used to 500.
+coerce from an int, so every request to this endpoint used to 500. Also checks
+the endpoint requires login and only returns trades from the caller's groups.
 """
 
 from datetime import datetime, timedelta
@@ -49,6 +50,35 @@ async def trade_fixture(db_session: AsyncSession) -> orm_models.Trade:
     return trade
 
 
+async def _login(client: AsyncClient, email: str) -> dict[str, str]:
+    await client.post(
+        "/register", json={"name": email.split("@")[0], "email": email, "password": "password123"}
+    )
+    response = await client.post(
+        "/login/access-token", data={"username": email, "password": "password123"}
+    )
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
+@pytest.fixture
+async def member_headers(
+    client: AsyncClient, db_session: AsyncSession, trade_fixture: orm_models.Trade
+) -> dict[str, str]:
+    """Auth headers for a user who belongs to the trade's group."""
+    headers = await _login(client, "member@example.com")
+    user = await service.get_user_by_email(db_session, email="member@example.com")
+    db_session.add(
+        orm_models.UserGroupAssociation(
+            user_id=user.id,
+            group_id=trade_fixture.group_id,
+            role=orm_models.GroupMemberRole.MEMBER,
+        )
+    )
+    await db_session.commit()
+    db_session.expire_all()
+    return headers
+
+
 async def test_trade_row_gets_timestamps_on_insert(trade_fixture: orm_models.Trade):
     """The database fills both columns without the caller supplying them."""
     assert trade_fixture.created_at is not None
@@ -77,10 +107,10 @@ async def test_update_bumps_updated_at_only(
 
 
 async def test_read_trades_by_symbol_returns_timestamps(
-    client: AsyncClient, trade_fixture: orm_models.Trade
+    client: AsyncClient, trade_fixture: orm_models.Trade, member_headers: dict[str, str]
 ):
     """The endpoint serialises, and the timestamps reach the client."""
-    response = await client.get("/trades/symbol/AAPL")
+    response = await client.get("/trades/symbol/AAPL", headers=member_headers)
 
     assert response.status_code == 200
     body = response.json()
@@ -98,8 +128,24 @@ async def test_read_trades_by_symbol_returns_timestamps(
 
 
 async def test_read_trades_by_symbol_is_case_insensitive(
-    client: AsyncClient, trade_fixture: orm_models.Trade
+    client: AsyncClient, trade_fixture: orm_models.Trade, member_headers: dict[str, str]
 ):
-    response = await client.get("/trades/symbol/aapl")
+    response = await client.get("/trades/symbol/aapl", headers=member_headers)
     assert response.status_code == 200
     assert response.json()[0]["symbol"] == "AAPL"
+
+
+async def test_read_trades_by_symbol_requires_login(
+    client: AsyncClient, trade_fixture: orm_models.Trade
+):
+    response = await client.get("/trades/symbol/AAPL")
+    assert response.status_code == 401
+
+
+async def test_read_trades_by_symbol_hides_other_groups(
+    client: AsyncClient, trade_fixture: orm_models.Trade
+):
+    """A logged-in user outside the trade's group sees nothing."""
+    headers = await _login(client, "outsider@example.com")
+    response = await client.get("/trades/symbol/AAPL", headers=headers)
+    assert response.status_code == 404

@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,6 +20,10 @@ class Settings(BaseSettings):
     # Comma-separated list of allowed frontend origins
     CORS_ORIGINS: str = "http://localhost:5173"
 
+    # --- Frontend ---
+    # Base URL used to build links in emails (e.g. password reset)
+    FRONTEND_URL: str = "http://localhost:5173"
+
     # --- Security ---
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
@@ -35,6 +40,17 @@ class Settings(BaseSettings):
 
     # This tells Pydantic to load the variables from a .env file
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def _secret_key_strong_enough(cls, v: str) -> str:
+        # Anyone who knows the key can mint tokens for any user, admins included
+        if v == "change-me" or len(v) < 32:
+            raise ValueError(
+                "SECRET_KEY must be at least 32 characters; generate one with "
+                'python3 -c "import secrets; print(secrets.token_urlsafe(48))"'
+            )
+        return v
 
     @property
     def cors_origins(self) -> list[str]:

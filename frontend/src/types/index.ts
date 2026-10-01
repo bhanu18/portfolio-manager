@@ -82,6 +82,11 @@ export interface ChangePasswordPayload {
   new_password: string;
 }
 
+/** POST /change-password — old tokens are revoked, so a fresh one comes back. */
+export interface ChangePasswordResponse extends LoginResponse {
+  message: string;
+}
+
 export interface ForgotPasswordPayload {
   email: string;
 }

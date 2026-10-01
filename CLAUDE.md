@@ -12,7 +12,6 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 ## Layout
 - `backend/main.py` — app, lifespan, CORS (from settings), routers, `/` and `/health`
 - `backend/core/config.py` — pydantic-settings; `CORS_ORIGINS` comma-separated, `TEST_DATABASE_URL` optional, `DB_ECHO`
-- `backend/scripts/` — one-off import scripts (`import_csv.py <file>`, `import_portfolio_history.py`)
 - `backend/routers/` — auth, assets, trades, group, reports, email
 - `backend/models/` — Pydantic schemas; `backend/db/orm_models.py` — ORM
 - `backend/service/` — security (JWT/bcrypt), email
@@ -37,7 +36,7 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 ## Conventions & gotchas
 - When changing a backend response model, update `frontend/src/types/index.ts` and the matching `frontend/src/api/*.ts` in the same change.
 - Login is form-encoded (`username`=email), not JSON.
-- Import scripts are not idempotent: they always INSERT trades, so re-running duplicates them. `import_portfolio_history.py` has `--dry-run`; `import_csv.py` does not.
+- `backend/scripts/` (CLI importers) removed 2026-10-02; `service/imports/` pipeline remains but has no caller outside tests.
 - MySQL 8 defaults to `caching_sha2_password`; aiomysql needs `cryptography` installed or login fails with a 500 at connect time.
 - `/assets/{symbol}` and `/assets/{asset_id}` share a path shape — frontend uses numeric IDs.
 - CORS: set `CORS_ORIGINS` in `backend/.env` (default `http://localhost:5173`).

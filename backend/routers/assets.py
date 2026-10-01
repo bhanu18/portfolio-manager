@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # Import our new dependencies and functions
 import models.users as user_schema
 from db import service
-from db.dependencies import get_current_active_admin_user, get_db
+from db.dependencies import get_current_active_admin_user, get_current_active_user, get_db
 from models.asset import Asset, AssetCreate, AssetUpdate
 
 router = APIRouter(
@@ -53,7 +53,11 @@ async def read_asset_by_id(asset_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/create", response_model=Asset, status_code=201)
-async def create_asset(asset_in: AssetCreate, db: AsyncSession = Depends(get_db)):
+async def create_asset(
+    asset_in: AssetCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: user_schema.User = Depends(get_current_active_user),
+):
     """
     Create a new asset. The current price will be fetched from Yahoo Finance.
     """
@@ -122,7 +126,10 @@ def fetch_price_sync(symbol: str) -> float | None:
 
 
 @router.post("/update-all-prices", summary="Update prices for all assets")
-async def update_all_asset_prices(db: AsyncSession = Depends(get_db)):
+async def update_all_asset_prices(
+    db: AsyncSession = Depends(get_db),
+    current_user: user_schema.User = Depends(get_current_active_user),
+):
     """
     Fetches all assets from the database and updates the current price for each
     one that has not been updated in the last 24 hours.

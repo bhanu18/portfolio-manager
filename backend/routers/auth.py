@@ -1,9 +1,12 @@
+import html
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
@@ -12,8 +15,9 @@ from db.dependencies import get_current_active_admin_user, get_current_active_us
 from models import users as user_schema
 from service.email import email_service
 from service.security import (
-    create_access_token,
     create_password_reset_token,
+    create_user_access_token,
+    fingerprint_matches_password,
     verify_password,
     verify_password_reset_token,
 )
@@ -35,13 +39,20 @@ async def register_new_user(
     **Rate Limiting:** This endpoint is rate-limited to 3 registrations per hour per IP address
     to prevent spam account creation.
     """
+    # Same message for a taken email or a taken name, so neither is revealed
+    registration_failed = HTTPException(
+        status_code=400,
+        detail="Registration failed. Check your details or try logging in.",
+    )
     user = await service.get_user_by_email(db, email=user_in.email)
     if user:
-        raise HTTPException(
-            status_code=400,
-            detail="A user with this email already exists.",
-        )
-    new_user = await service.create_user(db, user=user_in)
+        raise registration_failed
+    try:
+        new_user = await service.create_user(db, user=user_in)
+    except IntegrityError as e:
+        # users.name is unique too (and covers an email race between check and insert)
+        await db.rollback()
+        raise registration_failed from e
     return new_user
 
 
@@ -68,7 +79,7 @@ async def login_for_access_token(
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token = create_access_token(data={"sub": user.email})
+    access_token = create_user_access_token(user.email, user.hashed_password)
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -109,7 +120,8 @@ async def change_password(
     """
     Change the password for the currently logged-in user.
 
-    Requires the current password and a new password.
+    Requires the current password and a new password. All previously issued
+    tokens stop working; the response carries a new one for this session.
 
     **Rate Limiting:** This endpoint is rate-limited to 5 attempts per hour per IP address.
     """
@@ -125,10 +137,15 @@ async def change_password(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect"
         )
 
-    # Update with the new password
+    # Update with the new password; this invalidates every existing token
     await service.update_user_password(db, db_user, password_data.new_password)
 
-    return {"message": "Password changed successfully"}
+    # Hand back a fresh token so this session stays signed in
+    return {
+        "message": "Password changed successfully",
+        "access_token": create_user_access_token(db_user.email, db_user.hashed_password),
+        "token_type": "bearer",
+    }
 
 
 @router.post("/forgot-password")
@@ -155,11 +172,16 @@ async def forgot_password(
         }
 
     # Generate password reset token
-    reset_token = create_password_reset_token(email=user.email)
+    reset_token = create_password_reset_token(
+        email=user.email, hashed_password=user.hashed_password
+    )
 
     # Send password reset email
     try:
-        reset_link = f"https://your-frontend-url.com/reset-password?token={reset_token}"
+        reset_link = (
+            f"{settings.FRONTEND_URL.rstrip('/')}/reset-password?token={quote(reset_token)}"
+        )
+        safe_name = html.escape(user.name)
 
         email_body = f"""
 Hello {user.name},
@@ -179,7 +201,7 @@ Portfolio Tracker Team
         html_body = f"""
 <html>
 <body>
-<p>Hello {user.name},</p>
+<p>Hello {safe_name},</p>
 <p>You requested a password reset for your Portfolio Tracker account.</p>
 <p>Click the link below to reset your password (valid for {settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES} minutes):</p>
 <p><a href="{reset_link}">Reset Your Password</a></p>
@@ -217,19 +239,19 @@ async def reset_password(
     **Rate Limiting:** This endpoint is rate-limited to 5 attempts per hour per IP address.
     """
     # Verify the reset token
-    email = verify_password_reset_token(reset_data.token)
+    invalid_token = HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Invalid or expired password reset token",
+    )
+    claims = verify_password_reset_token(reset_data.token)
+    if not claims:
+        raise invalid_token
+    email, fingerprint = claims
 
-    if not email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired password reset token",
-        )
-
-    # Get the user
+    # Get the user; a token issued before the last password change is dead
     user = await service.get_user_by_email(db, email=email)
-
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if not user or not fingerprint_matches_password(fingerprint, user.hashed_password):
+        raise invalid_token
 
     if not user.is_active:
         raise HTTPException(

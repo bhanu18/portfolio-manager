@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -37,7 +40,7 @@ jobs:
       DATABASE_URL: mysql+aiomysql://ci:ci@127.0.0.1:3306/portfolio_test
       SYNC_DATABASE_URL: mysql+pymysql://ci:ci@127.0.0.1:3306/portfolio_test
       TEST_DATABASE_URL: mysql+aiomysql://ci:ci@127.0.0.1:3306/portfolio_test
-      SECRET_KEY: ci-only-not-a-secret
+      SECRET_KEY: ci-only-not-a-secret-just-long-enough-for-the-check
 
     steps:
       - uses: actions/checkout@v5

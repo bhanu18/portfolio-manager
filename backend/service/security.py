@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 from datetime import UTC, datetime, timedelta
 
 from jose import JWTError, jwt
@@ -19,6 +21,16 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
+def create_user_access_token(email: str, hashed_password: str) -> str:
+    """
+    Creates a login token for a user.
+
+    Like reset tokens, it carries a fingerprint of the current password hash, so
+    every outstanding token stops working when the password changes.
+    """
+    return create_access_token(data={"sub": email, "pwd": password_fingerprint(hashed_password)})
+
+
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     """Creates a new JWT access token."""
     to_encode = data.copy()
@@ -31,25 +43,50 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     return encoded_jwt
 
 
-def create_password_reset_token(email: str) -> str:
-    """Creates a JWT token for password reset."""
+def password_fingerprint(hashed_password: str) -> str:
+    """Short digest of the stored hash; changes whenever the password does."""
+    return hashlib.sha256(hashed_password.encode()).hexdigest()[:16]
+
+
+def create_password_reset_token(email: str, hashed_password: str) -> str:
+    """
+    Creates a JWT token for password reset.
+
+    The token carries a fingerprint of the current password hash, so it stops
+    working as soon as the password is changed (i.e. it is single-use).
+    """
     expire = datetime.now(UTC) + timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
-    to_encode = {"sub": email, "exp": expire, "type": "password_reset"}
+    to_encode = {
+        "sub": email,
+        "exp": expire,
+        "type": "password_reset",
+        "pwd": password_fingerprint(hashed_password),
+    }
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
 
-def verify_password_reset_token(token: str) -> str | None:
+def verify_password_reset_token(token: str) -> tuple[str, str] | None:
     """
-    Verifies a password reset token and returns the email if valid.
-    Returns None if the token is invalid or expired.
+    Verifies a password reset token's signature, expiry and type.
+    Returns (email, password fingerprint), or None if the token is invalid or expired.
+    Callers must check the fingerprint with `fingerprint_matches_password`.
     """
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        email: str = payload.get("sub")
-        token_type: str = payload.get("type")
-        if email is None or token_type != "password_reset":
-            return None
-        return email
     except JWTError:
         return None
+    email = payload.get("sub")
+    fingerprint = payload.get("pwd")
+    if (
+        not isinstance(email, str)
+        or not isinstance(fingerprint, str)
+        or payload.get("type") != "password_reset"
+    ):
+        return None
+    return email, fingerprint
+
+
+def fingerprint_matches_password(fingerprint: str, hashed_password: str) -> bool:
+    """True if the token was issued for the user's current password."""
+    return hmac.compare_digest(fingerprint, password_fingerprint(hashed_password))

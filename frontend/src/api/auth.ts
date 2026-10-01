@@ -3,8 +3,10 @@
 // ---------------------------------------------------------------------------
 
 import { apiClient } from "../lib/apiClient";
+import { setToken } from "../lib/token";
 import type {
   ChangePasswordPayload,
+  ChangePasswordResponse,
   ForgotPasswordPayload,
   GroupAssociation,
   GroupMemberRoleValue,
@@ -122,8 +124,11 @@ export async function listUsers(): Promise<User[]> {
 /** POST /change-password — requires auth. Rate-limited 5/hour. */
 export async function changePassword(
   payload: ChangePasswordPayload,
-): Promise<{ message?: string }> {
-  const { data } = await apiClient.post<{ message?: string }>("/change-password", payload);
+): Promise<ChangePasswordResponse> {
+  const { data } = await apiClient.post<ChangePasswordResponse>("/change-password", payload);
+  // The backend revokes every earlier token on a password change; keep this
+  // session signed in with the replacement.
+  setToken(data.access_token);
   return data;
 }
 

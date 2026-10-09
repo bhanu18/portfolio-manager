@@ -8,6 +8,7 @@ import type {
   RawTrade,
   Trade,
   TradeCreatePayload,
+  TradeImportResult,
   TradeResponse,
   TradeUpdatePayload,
 } from "../types";
@@ -91,4 +92,24 @@ export async function updateTrade(tradeId: number, payload: TradeUpdatePayload):
 /** DELETE /trades/{trade_id} — 204 on success. */
 export async function deleteTrade(tradeId: number): Promise<void> {
   await apiClient.delete(`/trades/${tradeId}`);
+}
+
+/**
+ * POST /trades/import — upload a Yahoo Finance portfolio export (CSV/Excel).
+ * Dry run by default; re-importing the same file updates rather than duplicates.
+ */
+export async function importTrades(
+  file: File,
+  groupId: number,
+  dryRun = true,
+): Promise<TradeImportResult> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("group_id", String(groupId));
+  form.append("dry_run", String(dryRun));
+  // Override the client's JSON default; axios fills in the multipart boundary.
+  const { data } = await apiClient.post<TradeImportResult>("/trades/import", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
 }

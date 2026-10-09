@@ -60,6 +60,7 @@ export function ModernistNav({
           {link.label}
         </NavLink>
       ))}
+      {isAdmin && <NavLink to="/admin/usage">Usage</NavLink>}
 
       {children}
 

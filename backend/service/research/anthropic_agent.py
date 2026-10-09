@@ -2,14 +2,13 @@
 
 import json
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 
 from core.config import settings
 from models.research import Citation
-from service.research.agent import SYSTEM, TOOLS, ResearchAgent, ResearchFailure
+from service.research.agent import TOOLS, ResearchAgent, ResearchFailure, http_failure
 from service.research.providers import safe_url
 
 CLIENT_TOOLS = [
@@ -20,8 +19,10 @@ CLIENT_TOOLS = [
 
 
 class AnthropicResearchAgent(ResearchAgent):
-    def __init__(self, progress: Callable[..., Awaitable[None]], *, model: str | None = None):
-        super().__init__(progress, model=model or settings.ANTHROPIC_RESEARCH_MODEL)
+    def __init__(
+        self, progress: Callable[..., Awaitable[None]], *, model: str | None = None, **options: Any
+    ):
+        super().__init__(progress, model=model or settings.ANTHROPIC_RESEARCH_MODEL, **options)
 
     async def run(self, prompt: str, history: list[dict[str, str]]) -> str:
         messages: list[dict[str, Any]] = [*history, {"role": "user", "content": prompt}]
@@ -31,25 +32,29 @@ class AnthropicResearchAgent(ResearchAgent):
             > settings.RESEARCH_MAX_INPUT_TOKENS // 2
         ):
             del messages[: min(2, len(messages) - 1)]
-        system = SYSTEM + f"\nToday's UTC date: {datetime.now(UTC).date().isoformat()}."
+        system = self.instructions()
         seen_calls: set[str] = set()
         report = ""
         async with httpx.AsyncClient(timeout=httpx.Timeout(90, connect=10)) as client:
             for _ in range(settings.RESEARCH_MAX_MODEL_TURNS):
                 remaining_tools = settings.RESEARCH_MAX_TOOL_CALLS - self.tool_calls
-                remaining_output = settings.RESEARCH_MAX_OUTPUT_TOKENS - self.output_tokens
+                remaining_output = self.output_budget - self.output_tokens
                 if remaining_output < 500:
                     raise ResearchFailure(
                         "The response token budget was reached. Retry with a narrower question."
                     )
                 tools = (
                     [
-                        {
-                            "type": "web_search_20250305",
-                            "name": "web_search",
-                            "max_uses": remaining_tools,
-                        },
-                        *CLIENT_TOOLS,
+                        tool
+                        for tool in (
+                            {
+                                "type": "web_search_20250305",
+                                "name": "web_search",
+                                "max_uses": remaining_tools,
+                            },
+                            *CLIENT_TOOLS,
+                        )
+                        if self.tool_allowed(tool["name"])
                     ]
                     if remaining_tools > 0
                     else []
@@ -81,21 +86,11 @@ class AnthropicResearchAgent(ResearchAgent):
                         },
                     )
                     response.raise_for_status()
-                except httpx.HTTPStatusError as error:
-                    if error.response.status_code in (401, 403):
-                        raise ResearchFailure(
-                            "The Anthropic API key or model access needs attention on the server."
-                        ) from None
-                    if error.response.status_code == 429:
-                        raise ResearchFailure(
-                            "Anthropic's rate or billing limit was reached. Check API billing and retry later."
-                        ) from None
-                    raise ResearchFailure(
-                        "Anthropic rejected the request. Check the model and web-search access in your Anthropic account."
-                    ) from None
-                except httpx.HTTPError:
-                    raise ResearchFailure(
-                        "Anthropic could not be reached. Please retry later."
+                except httpx.HTTPError as error:
+                    raise http_failure(
+                        error,
+                        "Anthropic",
+                        "Anthropic rejected the request. Check the model and web-search access in your Anthropic account.",
                     ) from None
                 data = response.json()
                 usage = data.get("usage") or {}

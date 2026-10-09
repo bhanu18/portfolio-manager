@@ -12,6 +12,7 @@ from service.imports.base import (
     normalize_side,
     parse_date,
     require_columns,
+    skipped_row,
     to_float,
 )
 
@@ -40,20 +41,22 @@ class YahooParser:
             side = normalize_side(raw.get("Transaction Type", "buy"))
             if side is None:
                 rows.append(
-                    _skipped(position, f"unknown Transaction Type {raw.get('Transaction Type')!r}")
+                    skipped_row(
+                        position, f"unknown Transaction Type {raw.get('Transaction Type')!r}"
+                    )
                 )
                 continue
 
             trade_date = parse_date(raw["Trade Date"], formats=("%Y%m%d", "%Y/%m/%d", "%m/%d/%Y"))
             if trade_date is None:
-                rows.append(_skipped(position, f"unparseable Trade Date {raw['Trade Date']!r}"))
+                rows.append(skipped_row(position, f"unparseable Trade Date {raw['Trade Date']!r}"))
                 continue
 
             quantity = to_float(raw["Quantity"])
             price = to_float(raw["Purchase Price"])
             symbol = str(raw["Symbol"]).strip().upper()
             if not symbol or quantity <= 0 or price <= 0:
-                rows.append(_skipped(position, "missing symbol, quantity or price"))
+                rows.append(skipped_row(position, "missing symbol, quantity or price"))
                 continue
 
             rows.append(
@@ -72,17 +75,3 @@ class YahooParser:
         if not valid and rows:
             raise ParseError("no usable trades found in the Yahoo export")
         return rows
-
-
-def _skipped(line: int, reason: str) -> TradeRow:
-    """A placeholder row the pipeline drops, carrying the reason for the operator."""
-    from datetime import datetime
-
-    return TradeRow(
-        symbol="",
-        trade_type="buy",
-        trade_date=datetime(1970, 1, 1),  # noqa: DTZ001 - sentinel, never stored
-        quantity=0.0,
-        price_per_unit=0.0,
-        warnings=[f"line {line}: {reason}"],
-    )

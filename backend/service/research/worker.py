@@ -5,19 +5,21 @@ import contextlib
 import json
 import logging
 import signal
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import select, update
 
 from core.config import settings
+from core.time import db_utc_now
 from db.research_models import ResearchMessage, ResearchRun, ResearchSession
 from db.session import AsyncSessionLocal, engine
-from service.research.agent import ResearchAgent, ResearchFailure
-from service.research.anthropic_agent import AnthropicResearchAgent
+from service.research.agent import ResearchFailure
 from service.research.configuration import model_for_provider, provider_enabled, provider_options
+from service.research.orchestrator import FailoverResearchAgent, ResearchOrchestrator
 from service.research.queue import claim_run
+from service.research.usage import add_usage
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +29,7 @@ async def save_progress(run_id: str, worker_id: str, **values: Any) -> None:
         run = await db.scalar(select(ResearchRun).where(ResearchRun.id == run_id).with_for_update())
         if run is None or run.status != "running" or run.worker_id != worker_id:
             raise asyncio.CancelledError
-        if run.lease_expires_at is None or run.lease_expires_at < datetime.utcnow():
+        if run.lease_expires_at is None or run.lease_expires_at < db_utc_now():
             raise asyncio.CancelledError
         for key, value in values.items():
             setattr(run, key, value)
@@ -39,7 +41,7 @@ async def heartbeat(run_id: str, worker_id: str, task: asyncio.Task) -> None:
         await asyncio.sleep(settings.RESEARCH_LEASE_SECONDS / 3)
         try:
             async with AsyncSessionLocal() as db:
-                now = datetime.utcnow()
+                now = db_utc_now()
                 result = await db.execute(
                     update(ResearchRun)
                     .where(
@@ -69,13 +71,13 @@ async def finish(
         run = await db.scalar(select(ResearchRun).where(ResearchRun.id == run_id).with_for_update())
         if run is None or run.status != "running" or run.worker_id != worker_id:
             return
-        if run.lease_expires_at is None or run.lease_expires_at < datetime.utcnow():
+        if run.lease_expires_at is None or run.lease_expires_at < db_utc_now():
             return
         run.status = "failed" if error else "completed"
         run.stage = "Research incomplete" if error else "Complete"
         run.error = error
         run.report = report
-        run.finished_at = datetime.utcnow()
+        run.finished_at = db_utc_now()
         run.lease_expires_at = None
         if report:
             db.add(
@@ -86,7 +88,7 @@ async def finish(
         await db.execute(
             update(ResearchSession)
             .where(ResearchSession.id == run.session_id)
-            .values(updated_at=datetime.utcnow())
+            .values(updated_at=db_utc_now())
         )
         await db.commit()
 
@@ -135,8 +137,11 @@ async def process_run(run_id: str, worker_id: str) -> None:
     async def progress(**values: Any) -> None:
         await save_progress(run_id, worker_id, **values)
 
-    agent_class = AnthropicResearchAgent if provider == "anthropic" else ResearchAgent
-    agent = agent_class(progress, model=model)
+    agent: ResearchOrchestrator = (
+        ResearchOrchestrator(progress)
+        if provider == "auto"
+        else FailoverResearchAgent(progress, provider=provider, model=model)
+    )
     try:
         if not provider_enabled(provider):
             raise ResearchFailure(
@@ -165,6 +170,18 @@ async def process_run(run_id: str, worker_id: str) -> None:
         await finish(
             run_id, worker_id, error="Research failed unexpectedly. Check worker logs and retry."
         )
+    finally:
+        # Every outcome, including cancellation: providers bill tokens even without a report.
+        await record_usage(run_id, agent.steps)
+
+
+async def record_usage(run_id: str, steps: list[dict[str, Any]]) -> None:
+    try:
+        async with AsyncSessionLocal() as db:
+            await add_usage(db, steps)
+    except Exception:
+        # Accounting must never fail or hide the run's own outcome.
+        logger.exception("Could not record model usage for %s", run_id)
 
 
 async def run_claimed(run_id: str, worker_id: str, stop: asyncio.Event) -> None:
@@ -189,7 +206,7 @@ async def run_claimed(run_id: str, worker_id: str, stop: asyncio.Event) -> None:
 async def main() -> None:
     if not any(option.enabled for option in provider_options()):
         raise SystemExit(
-            "Set OPENAI_API_KEY or ANTHROPIC_API_KEY before starting the research worker."
+            "Set OPENAI_API_KEY, ANTHROPIC_API_KEY or LOCAL_LLM_MODEL before starting the research worker."
         )
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()

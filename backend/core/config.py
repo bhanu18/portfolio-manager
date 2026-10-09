@@ -37,7 +37,19 @@ class Settings(BaseSettings):
     RESEARCH_MODEL: str = "gpt-5-mini"
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_RESEARCH_MODEL: str = "claude-sonnet-5-5"
-    RESEARCH_PROVIDER: Literal["openai", "anthropic"] = "openai"
+    RESEARCH_PROVIDER: Literal["openai", "anthropic", "local", "auto"] = "openai"
+    # OpenAI-compatible local server (Ollama default). Empty model disables local research.
+    LOCAL_LLM_BASE_URL: str = "http://localhost:11434/v1"
+    LOCAL_LLM_MODEL: str = ""
+    # Model that maps unfamiliar trade-import columns; empty = LOCAL_LLM_MODEL. Tiny (~2B)
+    # models tend to echo cell values instead of column names, so a 4B+ instruct model fits.
+    IMPORT_LLM_MODEL: str = ""
+    LOCAL_LLM_API_KEY: str = "ollama"
+    # Reasoning on thinking models (Gemma 4, Qwen3): slower and token-hungry; off by default.
+    LOCAL_LLM_THINKING: bool = False
+    # "provider:model" targets the Auto orchestrator routes to; local tier is LOCAL_LLM_MODEL.
+    RESEARCH_TIER_CHEAP: str = "openai:gpt-5-mini"
+    RESEARCH_TIER_STRONG: str = "anthropic:claude-sonnet-5-5"
     RESEARCH_DAILY_LIMIT: int = Field(default=20, ge=1)
     RESEARCH_MAX_ACTIVE_PER_USER: int = Field(default=1, ge=1)
     RESEARCH_MAX_MODEL_TURNS: int = Field(default=6, ge=1, le=20)

@@ -6,6 +6,7 @@ asset resolution and upsert logic.
 
 from __future__ import annotations
 
+import asyncio
 import math
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -110,7 +111,7 @@ async def resolve_assets(
         result.assets_created = missing
         return {**asset_ids, **{symbol: -1 for symbol in missing}}
 
-    details = lookup_asset_details(missing)
+    details = await asyncio.to_thread(lookup_asset_details, missing)
     now = datetime.now()  # noqa: DTZ005 - created_at/updated_at are naive columns
     db.add_all(
         [

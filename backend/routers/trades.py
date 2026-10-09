@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import models.users as user_schema
@@ -7,10 +9,20 @@ from db.dependencies import get_current_active_user, get_db
 from models.responses import TradeResponse
 
 # Import the Trade model
-from models.trade import Trade, TradeCreate, TradeUpdate
+from models.trade import Trade, TradeCreate, TradeImportResult, TradeUpdate
+from service.imports.base import ParseError
+from service.imports.pipeline import ImportError_, import_trades
+from service.imports.registry import parse_upload
 
 # Create a new router object for trades
 router = APIRouter(prefix="/trades", tags=["Trades"])
+limiter = Limiter(key_func=get_remote_address)
+
+IMPORT_EXTENSIONS = (".csv", ".xlsx", ".xls")
+IMPORT_MAX_BYTES = 2 * 1024 * 1024
+# Every upload shares the prefix YahooParser has always used, so a file re-imported via
+# the model mapping updates the trades an exact Yahoo export created, and vice versa.
+IMPORT_REF_PREFIX = "csv"
 
 
 @router.get("/in-group/{group_id}", response_model=list[Trade])
@@ -147,3 +159,59 @@ async def delete_a_trade(
         raise HTTPException(status_code=403, detail="Not authorized to delete this trade")
 
     return await service.delete_trade(db, db_trade=db_trade)
+
+
+@router.post("/import", response_model=TradeImportResult)
+@limiter.limit("20/hour")
+async def import_trades_file(
+    request: Request,
+    file: UploadFile = File(...),
+    group_id: int = Form(...),
+    dry_run: bool = Form(True),
+    db: AsyncSession = Depends(get_db),
+    current_user: user_schema.User = Depends(get_current_active_user),
+):
+    """
+    Import trades from a Yahoo Finance portfolio export (CSV or Excel) into a group.
+
+    Defaults to a dry run that reports what would change. Re-importing the same file
+    updates existing trades instead of duplicating them.
+    """
+    group = await service.get_group_by_id(db, group_id=group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    if not any(member.id == current_user.id for member in group.members):
+        raise HTTPException(status_code=403, detail="Not authorized to import into this group")
+
+    filename = file.filename or ""
+    if not filename.lower().endswith(IMPORT_EXTENSIONS):
+        raise HTTPException(status_code=422, detail="Upload a .csv, .xlsx or .xls file")
+    content = await file.read(IMPORT_MAX_BYTES + 1)
+    if len(content) > IMPORT_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="File is larger than 2 MB")
+
+    try:
+        source, rows, mapping = await parse_upload(content, filename)
+        result = await import_trades(
+            db,
+            rows,
+            broker=source,
+            group_id=group_id,
+            dry_run=dry_run,
+            ref_prefix=IMPORT_REF_PREFIX,
+        )
+    except (ParseError, ImportError_) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return TradeImportResult(
+        inserted=result.inserted,
+        updated=result.updated,
+        unchanged=result.unchanged,
+        skipped=result.skipped,
+        assets_created=result.assets_created,
+        warnings=result.warnings,
+        changes=result.changes,
+        dry_run=result.dry_run,
+        source=source,
+        mapping=mapping.as_dict() if mapping else None,
+    )

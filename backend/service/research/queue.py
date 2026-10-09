@@ -1,18 +1,19 @@
 """Database queue operations shared by API and worker."""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
+from core.time import db_utc_now
 from db.research_models import ResearchRun
 
 ACTIVE = ("queued", "running")
 
 
 async def expire_runs(db: AsyncSession) -> None:
-    now = datetime.utcnow()
+    now = db_utc_now()
     await db.execute(
         update(ResearchRun)
         .where(
@@ -53,7 +54,7 @@ async def claim_run(db: AsyncSession, worker_id: str) -> str | None:
         await db.commit()
         return None
     run_id = run.id
-    now = datetime.utcnow()
+    now = db_utc_now()
     run.status = "running"
     run.stage = "Reviewing your question"
     run.worker_id = worker_id

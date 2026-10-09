@@ -1,16 +1,18 @@
 """Owner-scoped research endpoints. No provider calls run inside HTTP requests."""
 
-from datetime import datetime
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from db.dependencies import get_current_active_user, get_db
+from core.time import db_utc_now
+from db.dependencies import get_current_active_admin_user, get_current_active_user, get_db
 from db.orm_models import User
 from db.research_models import ResearchDailyUsage, ResearchMessage, ResearchRun, ResearchSession
 from models.research import (
+    ModelUsageReport,
     ResearchCapabilities,
     ResearchCreate,
     ResearchDetail,
@@ -27,6 +29,7 @@ from service.research.configuration import (
     provider_options,
 )
 from service.research.queue import ACTIVE, expire_runs
+from service.research.usage import model_usage_totals
 
 router = APIRouter(prefix="/research", tags=["research"])
 
@@ -57,8 +60,28 @@ async def capabilities(user: UserSchema = Depends(get_current_active_user)):
         enabled=enabled,
         message=None
         if enabled
-        else "Research needs a server-side OPENAI_API_KEY or ANTHROPIC_API_KEY and a running research worker. Saved reports remain available.",
+        else "Research needs a server-side OPENAI_API_KEY, ANTHROPIC_API_KEY or LOCAL_LLM_MODEL and a running research worker. Saved reports remain available.",
         daily_limit=settings.RESEARCH_DAILY_LIMIT,
+    )
+
+
+@router.get("/usage/models", response_model=ModelUsageReport)
+async def model_usage(
+    days: int = Query(30, ge=1, le=3660),
+    admin: UserSchema = Depends(get_current_active_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Server-wide token totals per provider/model over the last `days` UTC days (admin only)."""
+    since = (db_utc_now().date() - timedelta(days=days - 1)).isoformat()
+    models = await model_usage_totals(db, since)
+    input_tokens = sum(item["input_tokens"] for item in models)
+    output_tokens = sum(item["output_tokens"] for item in models)
+    return ModelUsageReport(
+        since=since,
+        models=models,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=input_tokens + output_tokens,
     )
 
 
@@ -134,7 +157,7 @@ async def rename_session(
     await lock_user(db, user.id)
     session = await owned_session(db, session_id, user.id)
     session.title = body.title
-    session.updated_at = datetime.utcnow()
+    session.updated_at = db_utc_now()
     await db.commit()
     await db.refresh(session)
     return session
@@ -183,7 +206,11 @@ async def submit_message(
         return existing
     provider = body.provider or default_provider()
     if not provider_enabled(provider):
-        key_name = "ANTHROPIC_API_KEY" if provider == "anthropic" else "OPENAI_API_KEY"
+        key_name = {
+            "anthropic": "ANTHROPIC_API_KEY",
+            "local": "LOCAL_LLM_MODEL",
+            "auto": "an API key or LOCAL_LLM_MODEL",
+        }.get(provider, "OPENAI_API_KEY")
         raise HTTPException(
             503, f"Configure {key_name} on the server before starting {provider} research"
         )
@@ -201,7 +228,7 @@ async def submit_message(
         raise HTTPException(
             409, "Research is already running. Wait for it to finish or cancel it first."
         )
-    today = datetime.utcnow().date().isoformat()
+    today = db_utc_now().date().isoformat()
     usage = await db.get(ResearchDailyUsage, (user.id, today))
     if usage and usage.runs >= settings.RESEARCH_DAILY_LIMIT:
         raise HTTPException(
@@ -222,7 +249,7 @@ async def submit_message(
     db.add(run)
     await db.flush()
     db.add(ResearchMessage(session_id=session_id, run_id=run.id, role="user", content=body.prompt))
-    session.updated_at = datetime.utcnow()
+    session.updated_at = db_utc_now()
     if session.title == "New research":
         session.title = body.prompt[:120]
     await db.commit()
@@ -263,7 +290,7 @@ async def cancel_run(
     if run.status in ACTIVE:
         run.status = "cancelled"
         run.stage = "Cancelled"
-        run.finished_at = datetime.utcnow()
+        run.finished_at = db_utc_now()
         run.lease_expires_at = None
     await db.commit()
     await db.refresh(run)

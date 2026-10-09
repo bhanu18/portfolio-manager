@@ -149,3 +149,95 @@ async def test_read_trades_by_symbol_hides_other_groups(
     headers = await _login(client, "outsider@example.com")
     response = await client.get("/trades/symbol/AAPL", headers=headers)
     assert response.status_code == 404
+
+
+# --- POST /trades/import -------------------------------------------------------------
+
+YAHOO_EXPORT = (
+    "Symbol,Current Price,Date,Trade Date,Purchase Price,Quantity,Commission,High Limit,"
+    "Transaction Type\n"
+    "NVDA,219.5,2026/09/18,20241122,142.1,2.0,0.0,,BUY\n"
+    "NVDA,219.5,2026/09/18,20241206,145.53,1.0,0.51,,SELL\n"
+    "AAPL,230.1,2026/09/18,20260302,201.25,3.0,0.0,,BUY\n"
+)
+
+
+@pytest.fixture
+def no_asset_lookup(monkeypatch):
+    """New assets would otherwise be looked up on Yahoo over the network."""
+    from service.imports import pipeline
+
+    monkeypatch.setattr(
+        pipeline,
+        "lookup_asset_details",
+        lambda symbols: {s: {"name": s, "market": "NASDAQ", "type": "stock"} for s in symbols},
+    )
+
+
+@pytest.fixture
+async def group_id(
+    db_session: AsyncSession, trade_fixture: orm_models.Trade, member_headers: dict[str, str]
+) -> int:
+    """The member's group id, reloaded after member_headers expired the session."""
+    await db_session.refresh(trade_fixture)
+    return trade_fixture.group_id
+
+
+async def _import(client, headers, group_id, *, dry_run, content=YAHOO_EXPORT, name="y.csv"):
+    return await client.post(
+        "/trades/import",
+        headers=headers,
+        data={"group_id": str(group_id), "dry_run": str(dry_run).lower()},
+        files={"file": (name, content.encode() if isinstance(content, str) else content)},
+    )
+
+
+async def _trade_count(db_session: AsyncSession, group: int) -> int:
+    db_session.expire_all()
+    return len(await service.get_trades_by_group_id(db_session, group_id=group))
+
+
+async def test_import_dry_run_reports_without_writing(
+    client, db_session, group_id, member_headers, no_asset_lookup
+):
+    before = await _trade_count(db_session, group_id)
+    response = await _import(client, member_headers, group_id, dry_run=True)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["dry_run"] is True
+    assert body["source"] == "yahoo"
+    assert body["inserted"] == 3
+    assert body["assets_created"] == ["NVDA"]  # AAPL already exists
+    assert await _trade_count(db_session, group_id) == before
+
+
+async def test_import_is_idempotent(client, db_session, group_id, member_headers, no_asset_lookup):
+    before = await _trade_count(db_session, group_id)
+    first = await _import(client, member_headers, group_id, dry_run=False)
+    assert first.status_code == 200, first.text
+    assert first.json()["inserted"] == 3
+    assert await _trade_count(db_session, group_id) == before + 3
+
+    again = await _import(client, member_headers, group_id, dry_run=False)
+    assert again.json()["inserted"] == 0
+    assert again.json()["unchanged"] == 3
+    assert await _trade_count(db_session, group_id) == before + 3
+
+
+async def test_import_requires_group_membership(client, group_id, no_asset_lookup):
+    outsider = await _login(client, "outsider@example.com")
+    response = await _import(client, outsider, group_id, dry_run=True)
+    assert response.status_code == 403
+
+
+async def test_import_rejects_other_file_types(client, group_id, member_headers):
+    response = await _import(client, member_headers, group_id, dry_run=True, name="notes.txt")
+    assert response.status_code == 422
+
+
+async def test_import_rejects_oversized_file(client, group_id, member_headers):
+    response = await _import(
+        client, member_headers, group_id, dry_run=True, content=b"x" * (2**21 + 1)
+    )
+    assert response.status_code == 413

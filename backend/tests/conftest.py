@@ -68,8 +68,14 @@ def disable_rate_limits() -> Generator[None, None, None]:
     from main import app
     from routers import auth as auth_router
     from routers import email as email_router
+    from routers import trades as trades_router
 
-    limiters = [auth_router.limiter, email_router.limiter, app.state.limiter]
+    limiters = [
+        auth_router.limiter,
+        email_router.limiter,
+        trades_router.limiter,
+        app.state.limiter,
+    ]
     for limiter in limiters:
         limiter.enabled = False
     yield

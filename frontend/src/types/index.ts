@@ -242,6 +242,22 @@ export interface TradeUpdatePayload {
   group_id?: number;
 }
 
+/** POST /trades/import — what an import did, or would do on a dry run. */
+export interface TradeImportResult {
+  inserted: number;
+  updated: number;
+  unchanged: number;
+  skipped: number;
+  assets_created: string[];
+  warnings: string[];
+  changes: string[];
+  dry_run: boolean;
+  /** "yahoo": matched Yahoo's export; "mapped": columns mapped by the local model. */
+  source: "yahoo" | "mapped";
+  /** Field -> column name chosen by the local model (only when source is "mapped"). */
+  mapping: Record<string, string> | null;
+}
+
 // --- Groups (v2) -----------------------------------------------------------
 
 export type GroupMemberRole = "member" | "group_admin";
@@ -443,7 +459,16 @@ export interface ResearchEvidence {
   retrieved_at: string;
   snapshot: MarketSnapshot | null;
 }
-export type ResearchProvider = "openai" | "anthropic";
+export type ResearchProvider = "openai" | "anthropic" | "local" | "auto";
+export interface ResearchStep {
+  role: "classify" | "data" | "web" | "writer";
+  provider: "openai" | "anthropic" | "local" | "rules" | "tools";
+  model: string;
+  status: "running" | "completed" | "failed" | "skipped";
+  input_tokens: number;
+  output_tokens: number;
+  note: string | null;
+}
 export interface ResearchProviderOption {
   id: ResearchProvider;
   label: string;
@@ -466,6 +491,7 @@ export interface ResearchRun {
   tool_calls: number;
   model_turns: number;
   model: string | null;
+  steps: ResearchStep[];
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -488,4 +514,21 @@ export interface ResearchCapabilities {
   message: string | null;
   daily_limit: number;
   max_prompt_chars: number;
+}
+
+export interface ModelUsage {
+  provider: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  calls: number;
+  failed_calls: number;
+}
+export interface ModelUsageReport {
+  since: string;
+  models: ModelUsage[];
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
 }

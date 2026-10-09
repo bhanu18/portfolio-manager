@@ -7,8 +7,9 @@ import pytest
 from sqlalchemy import select
 
 from core.config import settings
-from db.orm_models import User
-from db.research_models import ResearchDailyUsage, ResearchRun
+from db.orm_models import User, UserRole
+from db.research_models import ResearchDailyUsage, ResearchModelUsage, ResearchRun
+from service.research.agent import ResearchAgent
 
 
 @pytest.fixture
@@ -30,6 +31,7 @@ async def research_user(client, db_session, monkeypatch):
     app.dependency_overrides[get_current_active_user] = lambda: user
     monkeypatch.setattr(settings, "OPENAI_API_KEY", "test-key-not-real")
     monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "")
+    monkeypatch.setattr(settings, "LOCAL_LLM_MODEL", "")
     monkeypatch.setattr(settings, "RESEARCH_PROVIDER", "openai")
     return user
 
@@ -211,7 +213,7 @@ async def test_worker_completion_persists_report_and_followups(
         await self.checkpoint("Reading issuer sources")
         return "## Summary\nA report with [issuer evidence](https://www.apple.com)."
 
-    monkeypatch.setattr(worker_db.ResearchAgent, "run", fake_agent)
+    monkeypatch.setattr(ResearchAgent, "run", fake_agent)
     await worker_db.process_run(run_id, "worker-test")
     detail = (await client.get(f"/research/sessions/{session}")).json()
     assert detail["runs"][0]["status"] == "completed"
@@ -273,7 +275,7 @@ async def test_worker_failure_keeps_evidence(
         await self.checkpoint("Reading filings")
         raise ResearchFailure("Provider temporarily unavailable")
 
-    monkeypatch.setattr(worker_db.ResearchAgent, "run", fail_agent)
+    monkeypatch.setattr(ResearchAgent, "run", fail_agent)
     await worker_db.process_run(run_id, "worker-test")
     response = (await client.get(f"/research/runs/{run_id}")).json()
     assert response["status"] == "failed"
@@ -396,7 +398,12 @@ async def test_anthropic_selection_and_configuration(client, research_user, monk
     monkeypatch.setattr(settings, "OPENAI_API_KEY", "")
     caps = (await client.get("/research/capabilities")).json()
     assert caps["enabled"] and caps["default_provider"] == "anthropic"
-    assert len(caps["providers"]) == 2
+    assert [option["id"] for option in caps["providers"]] == [
+        "auto",
+        "openai",
+        "anthropic",
+        "local",
+    ]
     response = await client.post(f"/research/sessions/{session}/messages", json=payload)
     assert response.status_code == 202
     assert response.json()["provider"] == "anthropic"
@@ -414,6 +421,7 @@ async def test_anthropic_selection_and_configuration(client, research_user, monk
 async def test_worker_uses_saved_anthropic_model(
     client, db_session, research_user, worker_db, monkeypatch
 ):
+    from service.research.anthropic_agent import AnthropicResearchAgent
     from service.research.queue import claim_run
 
     monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "fake-key")
@@ -431,9 +439,115 @@ async def test_worker_uses_saved_anthropic_model(
         assert self.model == "saved-model"
         return "Claude report"
 
-    monkeypatch.setattr(worker_db.AnthropicResearchAgent, "run", fake_agent)
+    monkeypatch.setattr(AnthropicResearchAgent, "run", fake_agent)
     await worker_db.process_run(run_id, "claude-worker")
     result = (await client.get(f"/research/runs/{run_id}")).json()
     assert result["status"] == "completed"
     assert result["report"] == "Claude report"
     assert result["model"] == "saved-model"
+
+
+async def test_local_and_auto_selection(client, research_user, monkeypatch):
+    session = await create(client)
+    payload = {"prompt": "AAPL price?", "request_id": str(uuid4()), "provider": "local"}
+    response = await client.post(f"/research/sessions/{session}/messages", json=payload)
+    assert response.status_code == 503
+    assert "LOCAL_LLM_MODEL" in response.json()["detail"]
+    monkeypatch.setattr(settings, "LOCAL_LLM_MODEL", "qwen3:8b")
+    caps = (await client.get("/research/capabilities")).json()
+    local = next(option for option in caps["providers"] if option["id"] == "local")
+    assert local == {"id": "local", "label": "Local", "model": "qwen3:8b", "enabled": True}
+    assert caps["default_provider"] == "openai"
+    payload["provider"] = "auto"
+    response = await client.post(f"/research/sessions/{session}/messages", json=payload)
+    assert response.status_code == 202
+    assert response.json()["provider"] == "auto"
+    assert response.json()["steps"] == []
+
+
+async def test_worker_runs_orchestrator_and_saves_steps(
+    client, db_session, research_user, worker_db, monkeypatch
+):
+    from service.research.orchestrator import ResearchOrchestrator
+    from service.research.queue import claim_run
+
+    session = await create(client)
+    response = await client.post(
+        f"/research/sessions/{session}/messages",
+        json={"prompt": "AAPL price?", "request_id": str(uuid4()), "provider": "auto"},
+    )
+    run_id = response.json()["id"]
+    await claim_run(db_session, "auto-worker")
+
+    async def fake_run(self, prompt, history):
+        step = self.start_step("writer", "local", "qwen3:8b")
+        step.update(status="completed", input_tokens=10, output_tokens=5)
+        await self.checkpoint("Drafting")
+        return "Routed report"
+
+    monkeypatch.setattr(ResearchOrchestrator, "run", fake_run)
+    await worker_db.process_run(run_id, "auto-worker")
+    result = (await client.get(f"/research/runs/{run_id}")).json()
+    assert result["status"] == "completed"
+    assert result["model"] == "auto: qwen3:8b"
+    assert result["steps"][0]["role"] == "writer"
+    assert result["steps"][0]["input_tokens"] == 10
+
+
+async def test_model_usage_is_stored_per_model_including_failovers(
+    client, db_session, research_user, worker_db, monkeypatch
+):
+    from service.research.agent import ProviderUnavailable
+    from service.research.anthropic_agent import AnthropicResearchAgent
+    from service.research.orchestrator import COOLDOWNS
+    from service.research.queue import claim_run
+
+    COOLDOWNS.clear()
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "fake-key")
+    monkeypatch.setattr(settings, "ANTHROPIC_RESEARCH_MODEL", "claude-test")
+    monkeypatch.setattr(settings, "RESEARCH_MODEL", "gpt-test")
+
+    async def out_of_credit(self, prompt, history):
+        self.input_tokens, self.output_tokens = 40, 0
+        raise ProviderUnavailable("Anthropic's credit or billing limit was reached.", cooldown=1)
+
+    async def answer(self, prompt, history):
+        self.input_tokens, self.output_tokens = 100, 50
+        return "Report"
+
+    monkeypatch.setattr(AnthropicResearchAgent, "run", out_of_credit)
+    monkeypatch.setattr(ResearchAgent, "run", answer)
+    session = await create(client)
+    for _ in range(2):
+        response = await client.post(
+            f"/research/sessions/{session}/messages",
+            json={"prompt": "Apple", "request_id": str(uuid4()), "provider": "anthropic"},
+        )
+        await claim_run(db_session, "usage-worker")
+        COOLDOWNS.clear()
+        await worker_db.process_run(response.json()["id"], "usage-worker")
+    rows = {
+        (row.provider, row.model): row
+        for row in await db_session.scalars(select(ResearchModelUsage))
+    }
+    assert (
+        rows["anthropic", "claude-test"].input_tokens,
+        rows["anthropic", "claude-test"].calls,
+    ) == (80, 2)
+    assert rows["anthropic", "claude-test"].failed_calls == 2
+    openai = rows["openai", "gpt-test"]
+    assert (openai.input_tokens, openai.output_tokens, openai.calls, openai.failed_calls) == (
+        200,
+        100,
+        2,
+        0,
+    )
+
+    assert (await client.get("/research/usage/models")).status_code == 403
+    research_user.role = UserRole.ADMIN
+    report = (await client.get("/research/usage/models?days=7")).json()
+    assert report["total_tokens"] == 380
+    assert [(m["model"], m["total_tokens"]) for m in report["models"]] == [
+        ("gpt-test", 300),
+        ("claude-test", 80),
+    ]

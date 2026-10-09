@@ -2,6 +2,7 @@ import { apiClient } from "../lib/apiClient";
 import type {
   ResearchProvider,
   ResearchCapabilities,
+  ModelUsageReport,
   ResearchDetail,
   ResearchRun,
   ResearchSession,
@@ -43,4 +44,8 @@ export async function submitMessage(
 }
 export async function cancelRun(id: string): Promise<ResearchRun> {
   return (await apiClient.post<ResearchRun>(`/research/runs/${id}/cancel`)).data;
+}
+export async function modelUsage(days: number): Promise<ModelUsageReport> {
+  return (await apiClient.get<ModelUsageReport>("/research/usage/models", { params: { days } }))
+    .data;
 }

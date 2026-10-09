@@ -31,6 +31,12 @@ const STARTERS = [
   },
 ];
 const active = (run: ResearchRun) => run.status === "queued" || run.status === "running";
+const PROVIDER_LABELS: Record<ResearchProvider, string> = {
+  auto: "Auto",
+  openai: "OpenAI",
+  anthropic: "Anthropic",
+  local: "Local",
+};
 const date = (value: string) =>
   new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 
@@ -481,12 +487,30 @@ function ResearchWorkspace({
                         ))}
                       {run.status === "completed" && (
                         <p className="research-report-footer">
-                          {run.provider === "anthropic" ? "Anthropic" : "OpenAI"} · {run.model} ·{" "}
-                          {run.tool_calls} tool calls ·{" "}
-                          {(run.input_tokens + run.output_tokens).toLocaleString()} tokens ·
+                          {PROVIDER_LABELS[run.provider]} · {run.model} · {run.tool_calls} tool
+                          calls · {(run.input_tokens + run.output_tokens).toLocaleString()} tokens ·
                           Research as of {date(run.finished_at!)}.
                         </p>
                       )}
+                      {(run.provider === "auto" || run.steps.length > 1) &&
+                        run.steps.length > 0 && (
+                          <ol className="research-steps" aria-label="Model routing">
+                            {run.steps.map((step, index) => (
+                              <li key={index} className={`research-step is-${step.status}`}>
+                                <span className="research-step-role">{step.role}</span>
+                                <span>{step.model}</span>
+                                {step.input_tokens + step.output_tokens > 0 && (
+                                  <span>
+                                    {step.input_tokens.toLocaleString()} in /{" "}
+                                    {step.output_tokens.toLocaleString()} out
+                                  </span>
+                                )}
+                                {step.status !== "completed" && <span>{step.status}</span>}
+                                {step.note && <span>{step.note}</span>}
+                              </li>
+                            ))}
+                          </ol>
+                        )}
                     </article>
                   ))}
                 </>

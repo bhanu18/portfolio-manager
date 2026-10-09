@@ -45,6 +45,18 @@ class TradeRow:
         )
 
 
+def skipped_row(line: int, reason: str) -> TradeRow:
+    """A placeholder row the pipeline drops, carrying the reason for the operator."""
+    return TradeRow(
+        symbol="",
+        trade_type="buy",
+        trade_date=datetime(1970, 1, 1),  # noqa: DTZ001 - sentinel, never stored
+        quantity=0.0,
+        price_per_unit=0.0,
+        warnings=[f"line {line}: {reason}"],
+    )
+
+
 class BrokerParser(Protocol):
     """What every broker module must provide."""
 

@@ -1,11 +1,15 @@
 """Parser and pipeline unit tests. No database required."""
 
+import io
+
 import pandas as pd
 import pytest
 
+from service.imports import mapping as mapping_module
 from service.imports.base import ParseError, TradeRow, make_source_ref, normalize_side, to_float
+from service.imports.mapping import MappedParser
 from service.imports.pipeline import to_payloads
-from service.imports.registry import get_parser, sniff_broker
+from service.imports.registry import get_parser, parse_upload, sniff_broker
 
 YAHOO_CSV = """Symbol,Current Price,Date,Trade Date,Purchase Price,Quantity,Commission,High Limit,Transaction Type
 NVDA,219.5,2026/09/18,20241206,145.53,2.0,0.51,,SELL
@@ -104,3 +108,103 @@ def test_normalize_side(raw, expected):
 )
 def test_to_float_handles_broker_formatting(raw, expected):
     assert to_float(raw) == expected
+
+
+# --- model-assisted column mapping -------------------------------------------------
+
+RENAMED_CSV = """Ticker,Date,Shares,Price,Action,Fees
+nvda,2024-12-06,2,145.53,Sold,0.51
+NFLX,2026-06-25,2.86282,72.715,Bought,0.22
+"""
+
+SIGNED_CSV = """Ticker,Date,Shares,Price
+AAPL,2026-01-02,5,190
+AAPL,2026-02-03,-2,210
+"""
+
+RENAMED_MAPPING = {
+    "symbol": "Ticker",
+    "trade_date": "Date",
+    "quantity": "Shares",
+    "price": "Price",
+    "side": "Action",
+    "fee": "Fees",
+    "currency": None,
+    "broker_ref": None,
+}
+
+
+def _df(text: str) -> pd.DataFrame:
+    return pd.read_csv(io.StringIO(text))
+
+
+def _fake_model(monkeypatch, reply):
+    calls = []
+
+    async def fake_local_json(system, prompt, *, max_tokens=300, model=None):
+        calls.append(prompt)
+        return reply, 0, 0
+
+    monkeypatch.setattr(mapping_module, "local_json", fake_local_json)
+    return calls
+
+
+def test_mapped_parser_reads_renamed_columns():
+    mapping = mapping_module.validate_mapping(RENAMED_MAPPING, _df(RENAMED_CSV).columns)
+    rows = MappedParser(mapping).parse(_df(RENAMED_CSV))
+    assert [(r.symbol, r.trade_type, r.quantity) for r in rows] == [
+        ("NVDA", "sell", 2.0),
+        ("NFLX", "buy", 2.86282),
+    ]
+    assert rows[0].trade_date.strftime("%Y-%m-%d") == "2024-12-06"
+    assert rows[0].effective_price() == pytest.approx(145.53 - 0.51 / 2)
+
+
+def test_mapped_parser_uses_sign_when_there_is_no_side_column():
+    mapping = mapping_module.ColumnMapping(
+        symbol="Ticker", trade_date="Date", quantity="Shares", price="Price"
+    )
+    rows = MappedParser(mapping).parse(_df(SIGNED_CSV))
+    assert [(r.trade_type, r.quantity) for r in rows] == [("buy", 5.0), ("sell", 2.0)]
+
+
+async def test_infer_mapping_accepts_valid_reply(monkeypatch):
+    calls = _fake_model(monkeypatch, RENAMED_MAPPING)
+    mapping = await mapping_module.infer_mapping(_df(RENAMED_CSV))
+    assert mapping is not None and mapping.side == "Action"
+    # Only headers and sample rows are sent.
+    assert "Ticker" in calls[0]
+
+
+async def test_infer_mapping_rejects_invented_column(monkeypatch):
+    _fake_model(monkeypatch, {**RENAMED_MAPPING, "price": "Purchase Price"})
+    assert await mapping_module.infer_mapping(_df(RENAMED_CSV)) is None
+
+
+async def test_infer_mapping_rejects_missing_required_field(monkeypatch):
+    _fake_model(monkeypatch, {**RENAMED_MAPPING, "quantity": None})
+    assert await mapping_module.infer_mapping(_df(RENAMED_CSV)) is None
+
+
+async def test_infer_mapping_none_without_model(monkeypatch):
+    _fake_model(monkeypatch, None)
+    assert await mapping_module.infer_mapping(_df(RENAMED_CSV)) is None
+
+
+async def test_parse_upload_prefers_yahoo_without_calling_model(monkeypatch):
+    calls = _fake_model(monkeypatch, RENAMED_MAPPING)
+    source, rows, mapping = await parse_upload(YAHOO_CSV.encode(), "portfolio.csv")
+    assert source == "yahoo" and mapping is None and not calls
+    assert len([r for r in rows if r.quantity > 0]) == 4
+
+
+async def test_parse_upload_falls_back_to_mapping(monkeypatch):
+    _fake_model(monkeypatch, RENAMED_MAPPING)
+    source, rows, mapping = await parse_upload(RENAMED_CSV.encode(), "edited.csv")
+    assert source == "mapped" and mapping is not None and len(rows) == 2
+
+
+async def test_parse_upload_explains_unrecognised_file(monkeypatch):
+    _fake_model(monkeypatch, None)
+    with pytest.raises(ParseError, match="LOCAL_LLM_MODEL"):
+        await parse_upload(RENAMED_CSV.encode(), "edited.csv")

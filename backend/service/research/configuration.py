@@ -5,7 +5,7 @@ from models.research import ResearchProviderOption
 
 
 def provider_options() -> list[ResearchProviderOption]:
-    return [
+    options = [
         ResearchProviderOption(
             id="openai",
             label="OpenAI",
@@ -18,14 +18,31 @@ def provider_options() -> list[ResearchProviderOption]:
             model=settings.ANTHROPIC_RESEARCH_MODEL,
             enabled=bool(settings.ANTHROPIC_API_KEY.strip()),
         ),
+        ResearchProviderOption(
+            id="local",
+            label="Local",
+            model=settings.LOCAL_LLM_MODEL.strip() or "Ollama",
+            enabled=bool(settings.LOCAL_LLM_MODEL.strip()),
+        ),
     ]
+    auto = ResearchProviderOption(
+        id="auto",
+        label="Auto",
+        model="cost-routed",
+        enabled=any(option.enabled for option in options),
+    )
+    return [auto, *options]
 
 
 def default_provider() -> str:
     options = provider_options()
     preferred = next(option for option in options if option.id == settings.RESEARCH_PROVIDER)
     return (
-        next((option.id for option in options if option.enabled), preferred.id)
+        # Fall back to a concrete provider; Auto is only used when chosen explicitly.
+        next(
+            (option.id for option in options if option.enabled and option.id != "auto"),
+            preferred.id,
+        )
         if not preferred.enabled
         else preferred.id
     )

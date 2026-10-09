@@ -56,3 +56,54 @@
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+
+/* --- Admin model usage ----------------------------------------------------- */
+.mod .usage-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0;
+  margin: 0 0 32px;
+  border-top: 1px solid var(--color-text);
+}
+.mod .usage-stats > div {
+  padding: 16px 16px 16px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+.mod .usage-stats dt {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-700);
+}
+.mod .usage-stats dd {
+  margin: 6px 0 0;
+  font-size: 28px;
+  line-height: 1.1;
+}
+.mod .usage-failed {
+  color: var(--color-accent);
+}
+.mod .usage-stats .usage-failed {
+  font-size: 13px;
+}
+.mod .usage-share-head {
+  min-width: 140px;
+}
+.mod .usage-share {
+  display: inline-block;
+  width: 96px;
+  height: 6px;
+  margin-right: 8px;
+  vertical-align: middle;
+  background: var(--color-divider);
+}
+.mod .usage-share > span {
+  display: block;
+  height: 100%;
+  background: var(--color-text);
+}
+.mod .usage-share-label {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-neutral-700);
+}

@@ -48,8 +48,10 @@ const BENCHMARK = "SPY";
 
 export function HoldingDetailPage() {
   const location = useLocation();
-  const requestedReturn = (location.state as { holdingsReturnTo?: string } | null)?.holdingsReturnTo;
-  const holdingsReturnTo = requestedReturn && /^\/holdings(?:\?|$)/.test(requestedReturn) ? requestedReturn : "/holdings";
+  const requestedReturn = (location.state as { holdingsReturnTo?: string } | null)
+    ?.holdingsReturnTo;
+  const holdingsReturnTo =
+    requestedReturn && /^\/holdings(?:\?|$)/.test(requestedReturn) ? requestedReturn : "/holdings";
   const { symbol: routeSymbol } = useParams<{ symbol: string }>();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -386,7 +388,14 @@ export function HoldingDetailPage() {
                 >
                   Edit asset
                 </button>
-                {selectedSymbol && <Link className="btn btn-secondary" to={`/research?symbol=${encodeURIComponent(selectedSymbol)}`}>Research ↗</Link>}
+                {selectedSymbol && (
+                  <Link
+                    className="btn btn-secondary"
+                    to={`/research?symbol=${encodeURIComponent(selectedSymbol)}`}
+                  >
+                    Research ↗
+                  </Link>
+                )}
                 <button
                   className="btn btn-primary"
                   type="button"

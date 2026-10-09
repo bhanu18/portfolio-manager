@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 
 from core.config import settings
-from models.research import Citation, Evidence
+from models.research import Citation, Evidence, MarketSnapshot
 from service.research.investment import investment_snapshot
 from service.research.providers import safe_url, stock_snapshot, treasury_snapshot
 
@@ -60,16 +60,95 @@ class ResearchFailure(Exception):
     """Safe, actionable error that may be shown to a user."""
 
 
+class ProviderUnavailable(ResearchFailure):
+    """The provider cannot serve any request right now (credit, key, rate limit, outage).
+
+    Unlike other failures this says nothing about the question, so Auto fails over to
+    another model and skips this provider for `cooldown` seconds.
+    """
+
+    def __init__(self, message: str, *, cooldown: float):
+        super().__init__(message)
+        self.cooldown = cooldown
+
+
+# Matched against the upstream error body, which is never shown to users. Anthropic reports
+# an exhausted balance as a 400 and OpenAI as a 429 `insufficient_quota`.
+CREDIT_HINTS = ("credit balance", "billing", "quota", "payment", "insufficient")
+
+
+def http_failure(error: httpx.HTTPError, name: str, rejected: str | None = None) -> ResearchFailure:
+    """Map a provider HTTP error to a safe message, flagging errors worth failing over."""
+    if not isinstance(error, httpx.HTTPStatusError):
+        return ProviderUnavailable(f"{name} could not be reached. Please retry later.", cooldown=60)
+    status = error.response.status_code
+    body = error.response.text[:2000].lower()
+    if status == 402 or any(hint in body for hint in CREDIT_HINTS):
+        return ProviderUnavailable(
+            f"{name}'s credit or billing limit was reached. Check API billing.", cooldown=1800
+        )
+    if status in (401, 403):
+        return ProviderUnavailable(
+            f"The {name} API key or model access needs attention on the server.", cooldown=1800
+        )
+    if status == 429:
+        return ProviderUnavailable(f"{name}'s rate limit was reached. Retry later.", cooldown=60)
+    if status >= 500:
+        return ProviderUnavailable(f"{name} is temporarily unavailable. Retry later.", cooldown=60)
+    return ResearchFailure(
+        rejected or f"{name} rejected the request. Check model configuration and retry."
+    )
+
+
 class ResearchAgent:
-    def __init__(self, progress: Callable[..., Awaitable[None]], *, model: str | None = None):
+    def __init__(
+        self,
+        progress: Callable[..., Awaitable[None]],
+        *,
+        model: str | None = None,
+        allowed_tools: set[str] | None = None,
+        extra_instructions: str = "",
+        max_output_tokens: int | None = None,
+    ):
         self.model = model or settings.RESEARCH_MODEL
         self.progress = progress
+        # None means every tool; the orchestrator narrows tools and budgets per step.
+        self.allowed_tools = allowed_tools
+        self.extra_instructions = extra_instructions
+        self.output_budget = min(
+            max_output_tokens or settings.RESEARCH_MAX_OUTPUT_TOKENS,
+            settings.RESEARCH_MAX_OUTPUT_TOKENS,
+        )
         self.evidence: list[dict[str, Any]] = []
         self.citations: list[dict[str, Any]] = []
         self.input_tokens = 0
         self.output_tokens = 0
         self.tool_calls = 0
         self.model_turns = 0
+
+    def tool_allowed(self, name: str) -> bool:
+        return self.allowed_tools is None or name in self.allowed_tools
+
+    def instructions(self) -> str:
+        text = SYSTEM + f"\nToday's UTC date: {datetime.now(UTC).date().isoformat()}."
+        return f"{text}\n\n{self.extra_instructions}" if self.extra_instructions else text
+
+    def record_snapshot(self, snapshot: MarketSnapshot) -> str:
+        """Save a snapshot as evidence and return its bounded model-context JSON."""
+        entry = Evidence(
+            title=snapshot.symbol or f"US Treasury {snapshot.kind}",
+            url=snapshot.source_url,
+            retrieved_at=snapshot.retrieved_at,
+            snapshot=snapshot,
+        )
+        self.evidence.append(entry.model_dump())
+        # Persist full chart data, but keep model context bounded to numeric summaries.
+        payload = snapshot.model_dump()
+        if payload.get("analysis"):
+            payload["analysis"].pop("trend", None)
+            for result in payload["analysis"]["backtests"]:
+                result.pop("curve", None)
+        return json.dumps(payload)
 
     async def checkpoint(self, stage: str) -> None:
         await self.progress(
@@ -100,6 +179,8 @@ class ResearchAgent:
             if name == "investment_analysis"
             else "Reading stock and ETF data"
         )
+        if not isinstance(name, str) or not self.tool_allowed(name):
+            return json.dumps({"error": "Unsupported read-only tool or arguments"})
         try:
             args = json.loads(item.get("arguments", "{}"))
             if not isinstance(args, dict):
@@ -118,21 +199,9 @@ class ResearchAgent:
                 snapshot = await treasury_snapshot(args["kind"])
             else:
                 return json.dumps({"error": "Unsupported read-only tool or arguments"})
-            entry = Evidence(
-                title=snapshot.symbol or f"US Treasury {snapshot.kind}",
-                url=snapshot.source_url,
-                retrieved_at=snapshot.retrieved_at,
-                snapshot=snapshot,
-            )
-            self.evidence.append(entry.model_dump())
+            result = self.record_snapshot(snapshot)
             await self.checkpoint("Checking market evidence")
-            # Persist full chart data, but keep model context bounded to numeric summaries.
-            payload = snapshot.model_dump()
-            if payload.get("analysis"):
-                payload["analysis"].pop("trend", None)
-                for result in payload["analysis"]["backtests"]:
-                    result.pop("curve", None)
-            return json.dumps(payload)
+            return result
         except (httpx.HTTPError, ValueError, TypeError, TimeoutError, KeyError):
             if name == "investment_analysis":
                 return json.dumps(
@@ -159,16 +228,20 @@ class ResearchAgent:
             > settings.RESEARCH_MAX_INPUT_TOKENS // 2
         ):
             del inputs[: min(2, len(inputs) - 1)]
-        instructions = SYSTEM + f"\nToday's UTC date: {datetime.now(UTC).date().isoformat()}."
+        instructions = self.instructions()
         async with httpx.AsyncClient(timeout=httpx.Timeout(90, connect=10)) as client:
             for _ in range(settings.RESEARCH_MAX_MODEL_TURNS):
                 remaining_tools = settings.RESEARCH_MAX_TOOL_CALLS - self.tool_calls
-                remaining_output = settings.RESEARCH_MAX_OUTPUT_TOKENS - self.output_tokens
+                remaining_output = self.output_budget - self.output_tokens
                 if remaining_output < 500:
                     raise ResearchFailure(
                         "The response token budget was reached. Retry with a narrower question."
                     )
-                tools = TOOLS if remaining_tools > 0 else []
+                tools = (
+                    [tool for tool in TOOLS if self.tool_allowed(tool.get("name", tool["type"]))]
+                    if remaining_tools > 0
+                    else []
+                )
                 bound = len(
                     json.dumps(
                         {"input": inputs, "instructions": instructions, "tools": tools},
@@ -190,7 +263,7 @@ class ResearchAgent:
                     "include": ["web_search_call.action.sources", "reasoning.encrypted_content"],
                     "max_output_tokens": min(4000, remaining_output),
                 }
-                if remaining_tools:
+                if tools:
                     payload["max_tool_calls"] = remaining_tools
                 try:
                     response = await client.post(
@@ -199,22 +272,8 @@ class ResearchAgent:
                         json=payload,
                     )
                     response.raise_for_status()
-                except httpx.HTTPStatusError as error:
-                    if error.response.status_code in (401, 403):
-                        raise ResearchFailure(
-                            "The research API key or model access needs attention on the server."
-                        ) from None
-                    if error.response.status_code == 429:
-                        raise ResearchFailure(
-                            "The AI provider's rate or billing limit was reached. Check API billing and retry later."
-                        ) from None
-                    raise ResearchFailure(
-                        "The AI provider rejected the request. Check model configuration and retry."
-                    ) from None
-                except httpx.HTTPError:
-                    raise ResearchFailure(
-                        "The AI provider could not be reached. Please retry later."
-                    ) from None
+                except httpx.HTTPError as error:
+                    raise http_failure(error, "OpenAI") from None
                 data = response.json()
                 usage = data.get("usage") or {}
                 self.input_tokens += int(usage.get("input_tokens", bound))

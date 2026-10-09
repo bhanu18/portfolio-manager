@@ -333,6 +333,32 @@
   font-size: 10px;
   line-height: 1.7;
 }
+.mod .research-steps {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--color-divider);
+  font-size: 10px;
+  line-height: 1.7;
+  color: var(--color-neutral-700);
+}
+.mod .research-step {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+.mod .research-step-role {
+  min-width: 64px;
+  color: var(--color-text);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.mod .research-step.is-failed,
+.mod .research-step.is-skipped {
+  color: var(--color-accent-700);
+}
 .mod .research-incomplete {
   font-size: 12px;
 }

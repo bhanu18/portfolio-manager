@@ -36,7 +36,7 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 ## Conventions & gotchas
 - When changing a backend response model, update `frontend/src/types/index.ts` and the matching `frontend/src/api/*.ts` in the same change.
 - Login is form-encoded (`username`=email), not JSON.
-- `backend/scripts/` (CLI importers) removed 2026-10-02; `service/imports/` pipeline remains but has no caller outside tests.
+- `backend/scripts/` (CLI importers) removed 2026-10-02. `service/imports/` is now called by `POST /trades/import` (Yahoo parser fast path; otherwise a local model maps columns → `MappedParser`). All uploads use ref prefix `csv` so re-imports dedupe across both paths. 2B models (gemma-4-e2b) echo cell values instead of column names; use a 4B+ model via `IMPORT_LLM_MODEL`.
 - MySQL 8 defaults to `caching_sha2_password`; aiomysql needs `cryptography` installed or login fails with a 500 at connect time.
 - `/assets/{symbol}` and `/assets/{asset_id}` share a path shape — frontend uses numeric IDs.
 - CORS: set `CORS_ORIGINS` in `backend/.env` (default `http://localhost:5173`).

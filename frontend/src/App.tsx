@@ -5,11 +5,13 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { PublicOnlyRoute } from "./components/PublicOnlyRoute";
+import { AdminRoute } from "./components/AdminRoute";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { UsagePage } from "./pages/UsagePage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { HoldingDetailPage } from "./pages/HoldingDetailPage";
 import { GroupDetailPage } from "./pages/GroupDetailPage";
@@ -47,6 +49,9 @@ export default function App() {
           <Route path="/assets/:symbol" element={<LegacyAssetRedirect />} />
 
           <Route path="/profile" element={<ProfilePage />} />
+          <Route element={<AdminRoute />}>
+            <Route path="/admin/usage" element={<UsagePage />} />
+          </Route>
 
           {/* /groups redirects to Profile (groups now live there) */}
           <Route path="/groups" element={<Navigate to="/profile" replace />} />

@@ -60,3 +60,19 @@ class TradeUpdate(BaseModel):
     quantity: float | None = None
     price_per_unit: float | None = None
     currency: str | None = None
+
+
+class TradeImportResult(BaseModel):
+    """What POST /trades/import did (or would do, on a dry run)."""
+
+    inserted: int
+    updated: int
+    unchanged: int
+    skipped: int
+    assets_created: list[str]
+    warnings: list[str]
+    changes: list[str]
+    dry_run: bool
+    # "yahoo" when the file matched Yahoo's export; "mapped" when the local model mapped it.
+    source: Literal["yahoo", "mapped"]
+    mapping: dict[str, str] | None = None

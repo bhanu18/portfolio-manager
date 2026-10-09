@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
+ResearchProviderId = Literal["openai", "anthropic", "local", "auto"]
+
 
 class ResearchCreate(BaseModel):
     title: str = Field(default="New research", min_length=1, max_length=120)
@@ -21,7 +23,7 @@ class ResearchCreate(BaseModel):
 class ResearchSubmit(BaseModel):
     prompt: str = Field(min_length=1, max_length=6000)
     request_id: UUID
-    provider: Literal["openai", "anthropic"] | None = None
+    provider: ResearchProviderId | None = None
 
     @field_validator("prompt")
     @classmethod
@@ -114,10 +116,22 @@ class Evidence(BaseModel):
     snapshot: MarketSnapshot | None = None
 
 
+class ResearchStep(BaseModel):
+    """One orchestrated sub-task and the model that handled it (Auto runs only)."""
+
+    role: Literal["classify", "data", "web", "writer"]
+    provider: Literal["openai", "anthropic", "local", "rules", "tools"]
+    model: str
+    status: Literal["running", "completed", "failed", "skipped"]
+    input_tokens: int = 0
+    output_tokens: int = 0
+    note: str | None = None
+
+
 class ResearchRunOut(ResearchRecord):
     id: str
     session_id: str
-    provider: Literal["openai", "anthropic"]
+    provider: ResearchProviderId
     prompt: str
     status: Literal["queued", "running", "completed", "failed", "cancelled"]
     stage: str
@@ -130,9 +144,16 @@ class ResearchRunOut(ResearchRecord):
     tool_calls: int
     model_turns: int
     model: str | None
+    steps: list[ResearchStep] = Field(default_factory=list)
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None
+
+    @field_validator("steps", mode="before")
+    @classmethod
+    def no_steps(cls, value: Any) -> Any:
+        # Runs created before orchestration have a NULL steps column.
+        return value or []
 
 
 class ResearchMessageOut(ResearchRecord):
@@ -149,7 +170,7 @@ class ResearchDetail(ResearchSessionOut):
 
 
 class ResearchProviderOption(BaseModel):
-    id: Literal["openai", "anthropic"]
+    id: ResearchProviderId
     label: str
     model: str
     enabled: bool
@@ -162,3 +183,21 @@ class ResearchCapabilities(BaseModel):
     message: str | None
     daily_limit: int
     max_prompt_chars: int = 6000
+
+
+class ModelUsageOut(BaseModel):
+    provider: str
+    model: str
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    calls: int
+    failed_calls: int
+
+
+class ModelUsageReport(BaseModel):
+    since: str
+    models: list[ModelUsageOut]
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int

@@ -19,6 +19,10 @@ and see what your holdings are worth today in any currency — with FIFO cost ba
 
 - **Assets** — stocks, ETFs, crypto and cash; live prices from Yahoo Finance with bulk refresh
 - **Trades** — buys and sells in the asset's native currency, scoped to a group
+- **Trade import** — upload a Yahoo Finance portfolio export (Trades → Import from Yahoo) with a
+  dry-run preview; re-imports update rather than duplicate. Files with other column layouts are
+  mapped by a local model (`IMPORT_LLM_MODEL`, else `LOCAL_LLM_MODEL`); the model only picks the
+  columns — values are still parsed deterministically, and nothing leaves the machine
 - **Groups** — shared portfolios with per-group roles (admin / member) on top of global user roles
 - **Valuation** — current value of any holding converted to a target currency
 - **Performance report** — FIFO cost basis, unrealized gain/loss, annualized return, local vs. FX gain,

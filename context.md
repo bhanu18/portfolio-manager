@@ -6,7 +6,7 @@ Last reviewed: **2026-10-09**. This is a developer/agent handoff for the current
 
 Portfolio Manager is a local-first, multi-currency portfolio application for stocks, ETFs, crypto, and cash. Users record trades in shared portfolio groups, inspect holdings, and view valuation and performance reports. A separate, private Research workspace provides on-demand market research without requiring asset ownership.
 
-The recent research direction is a smaller Bloomberg-like desk: sourced analysis, follow-up conversations, selectable OpenAI/Anthropic models, and deterministic investment-analysis tools. The user requested deeper investment analysis starting with MA50/200, three backtests, valuation, and bull/base/bear scenarios. This is implemented through shared prompting and tools, not model-weight fine-tuning.
+The recent research direction is a smaller Bloomberg-like desk: sourced analysis, follow-up conversations, selectable OpenAI/Anthropic/local (Ollama) models, a cost-routed Auto orchestrator, and deterministic investment-analysis tools. The user requested deeper investment analysis starting with MA50/200, three backtests, valuation, and bull/base/bear scenarios. This is implemented through shared prompting and tools, not model-weight fine-tuning.
 
 Research covers US stocks/ETFs, Treasury rates/bills, money-market questions, and qualitative bond-issuer research. Individual-bond quotes/accounting, trade execution, alerts, scheduled research, and shared research sessions are outside its current scope.
 
@@ -22,7 +22,8 @@ React/Vite browser
 
 Separate research worker
   -> atomically claims a queued run
-  -> selected OpenAI or Anthropic adapter
+  -> selected OpenAI, Anthropic or local (OpenAI-compatible) adapter,
+     or the Auto orchestrator that routes each step to the cheapest capable model
   -> shared prompt + read-only market/calculation tools + provider web search
   -> saves progress, evidence, citations, usage and final report
 
@@ -114,6 +115,9 @@ Navigation, price freshness, and trade-entry components include `ModernistNav`, 
 | `backend/service/research/worker.py` | Separate process, heartbeats, history, execution and fenced saves |
 | `backend/service/research/agent.py` | OpenAI Responses adapter, tool definitions, shared execution and checkpoints |
 | `backend/service/research/anthropic_agent.py` | Claude Messages adapter, server/client tool continuation and citations |
+| `backend/service/research/local_agent.py` | OpenAI-compatible Chat Completions adapter for local models (Ollama default) and the JSON-mode classifier call |
+| `backend/service/research/usage.py` | Per-model token totals (`research_model_usage`) and the admin usage query |
+| `backend/service/research/orchestrator.py` | Auto mode: classify → deterministic data → optional web step → tier-routed writer, per-step usage |
 | `backend/service/research/prompt.md` | **Single shared editable system prompt for both providers** |
 | `backend/service/research/providers.py` | Yahoo stock/ETF snapshots and official Treasury XML data |
 | `backend/service/research/investment.py` | Deterministic moving averages and backtests |
@@ -146,7 +150,7 @@ Records include:
 - `ResearchMessage`: session/run, role, content and timestamp.
 - `ResearchDailyUsage`: user/day and start count, retained when sessions are deleted.
 
-Run states are `queued`, `running`, `completed`, `failed`, `cancelled`. Failed and cancelled starts consume daily quota. Deleting sessions cannot reset quota. Research timestamps use microsecond precision on MySQL and serialize with explicit UTC timezone in API responses.
+Run states are `queued`, `running`, `completed`, `failed`, `cancelled`. Failed and cancelled starts consume daily quota. Deleting sessions cannot reset quota. Research timestamps use microsecond precision on MySQL and serialize with explicit UTC timezone in API responses. The database stores naive UTC; `backend/core/time.py::db_utc_now` reads `datetime.now(UTC)` and removes the timezone only for compatible storage/comparisons, avoiding deprecated `utcnow()` calls throughout research.
 
 Migrations:
 
@@ -174,7 +178,9 @@ The default heartbeat interval is one-third of the 30-second lease. Cancellation
 - OpenAI: direct httpx calls to Responses API; default `gpt-5-mini`, built-in web search and read-only function tools.
 - Anthropic: direct httpx calls to Messages API; default `claude-sonnet-5-5`, basic `web_search_20250305`, and the same client-side market tools. Handles `tool_use` and `pause_turn`, preserving server tool content for continuation.
 - Anthropic cited text receives source markers with offsets compatible with the report renderer. OpenAI inline citation spans are retained. Citation offsets use Unicode code points.
-- Provider/model are frozen when a run is queued. An explicit unavailable provider is rejected; failures never silently switch providers.
+- Local: OpenAI-compatible `/chat/completions` at `LOCAL_LLM_BASE_URL` (Ollama `http://localhost:11434/v1`). Also works with `mlx_lm.server` (`http://localhost:8080/v1`, model = HF repo id) or LM Studio. No `Authorization` header is sent when `LOCAL_LLM_API_KEY` is empty (an empty `Bearer ` is an illegal header in httpx — this broke every local call). Thinking models (Gemma 4, Qwen3) return reasoning in a separate `reasoning` field with `content: null` until done: the classifier always sends `chat_template_kwargs.enable_thinking=false`; the writer uses `LOCAL_LLM_THINKING` (default false). Small models with thinking off may skip tool calls — prefer Auto, which prefetches market data. No web search; the read-only market tools are offered as chat-format functions. `<think>` blocks are stripped. Ollama's default context is small — set `OLLAMA_CONTEXT_LENGTH` ≥ 16384.
+- Auto (`provider="auto"`, `orchestrator.py`): (1) **classify** with the local model in JSON mode, merged with regex rules (rules are a floor; the higher kind wins; rules alone when no local model); (2) **data**: stock/investment/Treasury snapshots fetched directly, no LLM; (3) **web** only when needed, on the cheap tier with `web_search` as its sole tool, notes passed to the writer (citations kept without spans); (4) **writer** tier by kind — clarify/lookup → local, news → cheap, analysis → strong — with tools disabled when data was complete. Tiers fall back to the next enabled target. Account-level errors (credit/billing — including Anthropic's 400 "credit balance" and OpenAI's 429 `insufficient_quota` — bad key, rate limit, 5xx, unreachable) raise `ProviderUnavailable`: Auto fails over to every other configured model and puts that provider in an in-process cooldown (30 min credit/key, 60 s rate limit/outage) so later runs try it last. Question-level failures escalate once from local; other cloud failures are not retried. Explicit OpenAI/Anthropic/Local runs (`FailoverResearchAgent`) run the whole question on the chosen model with full tools, and on `ProviderUnavailable` restart on the next enabled provider at its default model (cloud before local; cooling providers last); question-level failures are not retried. Per-step provider/model/tokens are saved in `research_runs.steps` and shown under the report.
+- Provider/model are frozen when a run is queued. An explicit provider without configuration is rejected at submit time. At run time, account-level failures switch to another provider; the switch is visible in the run's steps and `model` (e.g. `claude-sonnet-5-5→gpt-5-mini`).
 - If the preferred default provider lacks a key, capabilities choose another configured provider. If none is configured, saved reports remain readable and new research is disabled.
 - The prompt is loaded from `prompt.md` at import time: **restart workers after prompt edits**. This is prompt/tool engineering, not training or fine-tuning a model.
 
@@ -231,7 +237,12 @@ Backend requires `DATABASE_URL`, `SYNC_DATABASE_URL` and a strong `SECRET_KEY` (
 | `RESEARCH_MODEL` | `gpt-5-mini` |
 | `ANTHROPIC_API_KEY` | Empty; server only |
 | `ANTHROPIC_RESEARCH_MODEL` | `claude-sonnet-5-5` |
-| `RESEARCH_PROVIDER` | `openai` |
+| `RESEARCH_PROVIDER` | `openai` (`openai`/`anthropic`/`local`/`auto`) |
+| `LOCAL_LLM_BASE_URL` | `http://localhost:11434/v1` |
+| `LOCAL_LLM_MODEL` | Empty (local + local tier disabled) |
+| `LOCAL_LLM_API_KEY` | `ollama` (ignored by Ollama) |
+| `RESEARCH_TIER_CHEAP` | `openai:gpt-5-mini` |
+| `RESEARCH_TIER_STRONG` | `anthropic:claude-sonnet-5-5` |
 | `RESEARCH_DAILY_LIMIT` | 20 starts per user per UTC day |
 | `RESEARCH_MAX_ACTIVE_PER_USER` | 1 |
 | `RESEARCH_MAX_MODEL_TURNS` | 6 |
@@ -242,7 +253,7 @@ Backend requires `DATABASE_URL`, `SYNC_DATABASE_URL` and a strong `SECRET_KEY` (
 | `RESEARCH_LEASE_SECONDS` | 30 |
 | `RESEARCH_POLL_SECONDS` | 2 |
 
-Model requests use conservative UTF-8 byte bounds for input and record provider-reported usage. Token/tool limits are not an exact monetary spending cap. The investment cost assumption is currently a code constant, not an environment setting.
+Token usage is also aggregated per model in `research_model_usage` (PK: UTC `day`, `provider`, `model`; input/output tokens, calls, failed calls). The worker adds each run's step usage in a `finally` block, so completed, failed, timed-out, cancelled and failed-over calls all count; regex/market-tool steps are skipped. It uses select-for-update + insert with an IntegrityError retry (portable, no MySQL upsert) and survives session deletion. Admins read totals via `GET /research/usage/models?days=30`. The frontend page is `/admin/usage` (`frontend/src/pages/UsagePage.tsx`, guarded by `components/AdminRoute.tsx`; a "Usage" nav link shows only for admins; period in `?days=`). Model requests use conservative UTF-8 byte bounds for input and record provider-reported usage. Token/tool limits are not an exact monetary spending cap. The investment cost assumption is currently a code constant, not an environment setting.
 
 Frontend public configuration is `VITE_API_BASE_URL`, defaulting to `http://localhost:8000`. Never put provider keys in `VITE_*` variables.
 

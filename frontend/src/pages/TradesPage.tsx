@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQueries } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext";
@@ -5,11 +6,13 @@ import { listTradesInGroup } from "../api/trades";
 import { money } from "../lib/overview";
 import { formatDate, formatNumber } from "../lib/format";
 import { ErrorState } from "../components/ErrorState";
+import { TradeImportModal } from "../components/TradeImportModal";
 
 export function TradesPage() {
   const { user } = useAuth();
   const groups = user?.groups ?? [];
   const [params, setParams] = useSearchParams();
+  const [importing, setImporting] = useState(false);
   const group = params.get("group") ?? "";
   const search = params.get("q") ?? "";
   const selected = group ? groups.filter((g) => String(g.id) === group) : groups;
@@ -64,7 +67,22 @@ export function TradesPage() {
             placeholder="e.g. AAPL"
           />
         </label>
+        <button
+          type="button"
+          className="btn btn--secondary"
+          disabled={!groups.length}
+          onClick={() => setImporting(true)}
+        >
+          Import from Yahoo
+        </button>
       </div>
+      {importing && (
+        <TradeImportModal
+          groups={groups}
+          defaultGroupId={groups.find((g) => String(g.id) === group)?.id ?? groups[0]?.id ?? null}
+          onClose={() => setImporting(false)}
+        />
+      )}
       {loading && <p role="status">Loading trades…</p>}
       {failed && (
         <ErrorState

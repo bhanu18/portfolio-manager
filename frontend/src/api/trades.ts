@@ -1,3 +1,4 @@
+import { getAssetsByIds } from "./assets";
 // ---------------------------------------------------------------------------
 // Trades resource module (/trades prefix). All endpoints require auth.
 // ---------------------------------------------------------------------------
@@ -45,7 +46,18 @@ function normalizeTrade(raw: RawTrade): Trade {
 /** GET /trades/in-group/{group_id} — caller must be a member of the group. */
 export async function listTradesInGroup(groupId: number): Promise<Trade[]> {
   const { data } = await apiClient.get<RawTrade[]>(`/trades/in-group/${groupId}`);
-  return Array.isArray(data) ? data.map(normalizeTrade) : [];
+  const trades = Array.isArray(data) ? data.map(normalizeTrade) : [];
+  // Resolve missing symbols in a batch, rather than one HTTP request per asset.
+  const missingIds = [...new Set(trades.filter((t) => !t.symbol).map((t) => t.asset_id))];
+  const symbols = new Map<number, string>();
+  try {
+    for (const asset of await getAssetsByIds(missingIds)) {
+      symbols.set(asset.id, asset.symbol);
+    }
+  } catch {
+    // Keep transactions visible even when the asset lookup is unavailable.
+  }
+  return trades.map((t) => ({ ...t, symbol: t.symbol ?? symbols.get(t.asset_id) }));
 }
 
 /**

@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from datetime import datetime
+from typing import cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -24,6 +25,16 @@ async def get_asset_by_id(db: AsyncSession, asset_id: int):
     query = select(orm_models.Asset).where(orm_models.Asset.id == asset_id)
     result = await db.execute(query)
     return result.scalar_one_or_none()
+
+
+async def get_assets_by_ids(db: AsyncSession, asset_ids: list[int]):
+    """Resolve a batch with one query; omit missing IDs and preserve request order."""
+    ids = list(dict.fromkeys(asset_ids))
+    if not ids:
+        return []
+    result = await db.execute(select(orm_models.Asset).where(orm_models.Asset.id.in_(ids)))
+    by_id = {cast(int, asset.id): asset for asset in result.scalars()}
+    return [by_id[asset_id] for asset_id in ids if asset_id in by_id]
 
 
 async def get_asset_by_symbol(db: AsyncSession, symbol: str):

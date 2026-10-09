@@ -1,18 +1,15 @@
+import { authReturnTo } from "../lib/navigation";
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getErrorMessage } from "../lib/errors";
 import { validateEmail, validateRequired } from "../lib/validation";
 
-interface LocationState {
-  from?: { pathname: string };
-}
-
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const redirectTo = (location.state as LocationState | null)?.from?.pathname ?? "/assets";
+  const redirectTo = authReturnTo(location.state);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

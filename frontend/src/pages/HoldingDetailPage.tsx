@@ -8,8 +8,7 @@
 // 1e chrome in the design; their treatments are adapted into this layout's
 // detail pane.
 //
-// Routes: /holdings and /holdings/:symbol. These replace the retired
-// /portfolio split panel, which now redirects here.
+// Route: /holdings/:symbol. The /holdings index is the searchable position list.
 //
 // The app's modals render inline rather than through a portal, so they are
 // mounted OUTSIDE the .mod wrapper: inside it they would inherit this page's
@@ -17,7 +16,7 @@
 // ---------------------------------------------------------------------------
 
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import * as assetsApi from "../api/assets";
@@ -40,6 +39,7 @@ import type { Asset, PortfolioPerformanceReport, TradeResponse } from "../types"
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { TradeFormModal, type TradeFormResult } from "../components/TradeFormModal";
 import { AssetFormModal, type AssetFormValues } from "../components/AssetFormModal";
+import { PriceFreshness } from "../components/PriceFreshness";
 import { ModernistNav } from "../components/ModernistNav";
 import "../styles/modernist.css";
 
@@ -47,6 +47,9 @@ const BASE_CURRENCY = "USD";
 const BENCHMARK = "SPY";
 
 export function HoldingDetailPage() {
+  const location = useLocation();
+  const requestedReturn = (location.state as { holdingsReturnTo?: string } | null)?.holdingsReturnTo;
+  const holdingsReturnTo = requestedReturn && /^\/holdings(?:\?|$)/.test(requestedReturn) ? requestedReturn : "/holdings";
   const { symbol: routeSymbol } = useParams<{ symbol: string }>();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -127,8 +130,7 @@ export function HoldingDetailPage() {
   };
 
   const createMutation = useMutation({
-    mutationFn: (values: TradeFormResult["values"]) =>
-      tradesApi.createTrade(selectedSymbol!, values),
+    mutationFn: (result: TradeFormResult) => tradesApi.createTrade(result.symbol!, result.values),
     onSuccess: () => {
       toast.success("Trade added.");
       setTradeFormOpen(false);
@@ -189,7 +191,12 @@ export function HoldingDetailPage() {
   return (
     <>
       <div className="mod" style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}>
-        <ModernistNav />
+        <ModernistNav
+          onRecordTrade={() => {
+            setEditingTrade(null);
+            setTradeFormOpen(true);
+          }}
+        />
 
         <div
           style={{
@@ -219,8 +226,8 @@ export function HoldingDetailPage() {
                 }}
               >
                 <h5 style={{ margin: 0 }}>
-                  <Link to="/overview" style={{ textDecoration: "none" }}>
-                    HOLDINGS
+                  <Link to={holdingsReturnTo} style={{ textDecoration: "none" }}>
+                    ← All holdings
                   </Link>
                 </h5>
                 <span className="fig" style={{ fontSize: 11, color: "var(--color-neutral-700)" }}>
@@ -257,7 +264,8 @@ export function HoldingDetailPage() {
               : sidebarRows.map((a) => (
                   <Link
                     key={a.key}
-                    to={`/holdings/${a.ticker}`}
+                    to={`/holdings/${encodeURIComponent(a.ticker)}`}
+                    state={{ holdingsReturnTo }}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -367,6 +375,7 @@ export function HoldingDetailPage() {
                     <span className="sk" style={{ width: 280, height: 12 }} />
                   )}
                 </div>
+                {asset && <PriceFreshness timestamp={asset.price_last_updated} />}
               </div>
               <div style={{ display: "flex", gap: "var(--space-2)" }}>
                 <button
@@ -377,6 +386,7 @@ export function HoldingDetailPage() {
                 >
                   Edit asset
                 </button>
+                {selectedSymbol && <Link className="btn btn-secondary" to={`/research?symbol=${encodeURIComponent(selectedSymbol)}`}>Research ↗</Link>}
                 <button
                   className="btn btn-primary"
                   type="button"
@@ -386,7 +396,7 @@ export function HoldingDetailPage() {
                     setTradeFormOpen(true);
                   }}
                 >
-                  + New trade
+                  + Record trade
                 </button>
               </div>
             </div>
@@ -506,7 +516,7 @@ export function HoldingDetailPage() {
                           setTradeFormOpen(true);
                         }}
                       >
-                        + New trade
+                        + Record trade
                       </button>
                     </div>
                   ) : (
@@ -792,7 +802,7 @@ export function HoldingDetailPage() {
             if (editingTrade) {
               updateMutation.mutate({ id: editingTrade.id, values: result.values });
             } else {
-              createMutation.mutate(result.values);
+              createMutation.mutate(result);
             }
           }}
         />

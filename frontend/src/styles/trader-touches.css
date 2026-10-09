@@ -1,0 +1,58 @@
+.mod .metric-caption {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 8px;
+  color: var(--color-neutral-700);
+}
+.mod .holding-link {
+  font-weight: 800;
+  white-space: nowrap;
+  text-underline-offset: 4px;
+}
+.mod .holding-link:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 4px;
+}
+.mod .holding-row:hover,
+.mod .holding-row:focus-within {
+  background: var(--color-neutral-100);
+}
+.mod .price-freshness {
+  font-size: 12px;
+  color: var(--color-neutral-700);
+  margin: 8px 0 0;
+}
+.mod .trade-preview {
+  border-top: 1px solid var(--color-divider);
+  padding-top: 16px;
+  font-size: 13px;
+}
+.mod .trade-preview p {
+  margin: 8px 0;
+}
+.mod .nav {
+  flex-wrap: wrap;
+}
+
+.mod .workflow-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: end;
+  margin: 24px 0;
+}
+.mod .workflow-toolbar label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  min-width: 180px;
+}
+.mod .workflow-table {
+  overflow-x: auto;
+}
+.mod .workflow-table .num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

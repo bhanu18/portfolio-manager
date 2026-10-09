@@ -501,7 +501,7 @@ async def get_portfolio_performance(
         weighted_fx_at_purchase = 0
         weighted_purchase_price = 0
         earliest_purchase_date = None
-        total_quantity_for_weighting = 0
+        total_quantity_for_weighting = 0.0
 
         for buy_trade, qty_from_this_trade in lots:
             fx_data = fx_cache[fx_cache_key(buy_trade.currency, buy_trade.trade_date)]

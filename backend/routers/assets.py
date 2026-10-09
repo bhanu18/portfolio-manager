@@ -9,13 +9,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import models.users as user_schema
 from db import service
 from db.dependencies import get_current_active_admin_user, get_current_active_user, get_db
-from models.asset import Asset, AssetCreate, AssetUpdate
+from models.asset import Asset, AssetBatchRequest, AssetCreate, AssetUpdate
 
 router = APIRouter(
     prefix="/assets",  # All routes in this router will start with /assets
     tags=["Assets"],  # Groups endpoints in the API docs
     responses={404: {"description": "Not found"}},
 )
+
+
+@router.post("/batch", response_model=list[Asset])
+async def read_assets_by_ids(
+    body: AssetBatchRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: user_schema.User = Depends(get_current_active_user),
+):
+    """Fetch up to 500 asset IDs in one query. Duplicates and missing IDs are omitted.
+
+    Results follow the first occurrence of each ID in the request. Available to all
+    active users; this reads stored asset data without refreshing market prices.
+    """
+    return await service.get_assets_by_ids(db, body.ids)
 
 
 @router.get("/", response_model=list[Asset])

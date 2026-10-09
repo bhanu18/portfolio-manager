@@ -183,7 +183,7 @@ export function OverviewPage() {
 
   return (
     <div className="mod" style={{ minHeight: "100%" }}>
-      <ModernistNav>
+      <ModernistNav onRecorded={run}>
         <span className="tag tag-neutral fig" style={{ marginLeft: "var(--space-4)" }}>
           {BASE_CURRENCY}
         </span>
@@ -253,8 +253,8 @@ export function OverviewPage() {
         {isEmpty ? (
           <EmptyOverview
             groupName={groups[0]?.name}
-            onNewTrade={() => navigate("/holdings")}
-            onBrowseAssets={() => navigate("/holdings")}
+            onNewTrade={() => navigate("/overview?recordTrade=1")}
+            onBrowseAssets={() => navigate("/research")}
           />
         ) : (
           <>
@@ -301,6 +301,7 @@ export function OverviewPage() {
                       }}
                     >
                       {signedPct(summary.total_unrealized_gain_loss_pct)}
+                      <span className="metric-caption">Unrealized return</span>
                     </span>
                   ) : (
                     <span className="sk" style={{ width: 112, height: 26 }} />
@@ -480,7 +481,7 @@ export function OverviewPage() {
                       <th>Asset</th>
                       <th style={{ textAlign: "right" }}>Value</th>
                       <th style={{ width: 150 }}>Weight</th>
-                      <th style={{ textAlign: "right" }}>Return</th>
+                      <th style={{ textAlign: "right" }}>Total return</th>
                       <th style={{ textAlign: "right" }}>Grade</th>
                     </tr>
                   </thead>
@@ -519,7 +520,7 @@ export function OverviewPage() {
                           </tr>
                         ))
                       : holdingRows.map((h) => (
-                          <tr key={h.key}>
+                          <tr key={h.key} className="holding-row">
                             <td>
                               <div
                                 style={{
@@ -528,12 +529,13 @@ export function OverviewPage() {
                                   gap: "var(--space-2)",
                                 }}
                               >
-                                <span
-                                  className="fig"
-                                  style={{ fontWeight: 800, whiteSpace: "nowrap" }}
+                                <Link
+                                  className="fig holding-link"
+                                  to={`/holdings/${encodeURIComponent(h.ticker)}`}
+                                  aria-label={`View ${h.ticker} holding`}
                                 >
                                   {h.ticker}
-                                </span>
+                                </Link>
                                 <span
                                   style={{
                                     fontSize: 12.5,
@@ -790,7 +792,7 @@ export function OverviewPage() {
                     }}
                   >
                     <h4 style={{ margin: 0 }}>Recent activity</h4>
-                    <Link to="/holdings" style={{ fontSize: 12.5, fontWeight: 800 }}>
+                    <Link to="/trades" style={{ fontSize: 12.5, fontWeight: 800 }}>
                       All trades
                     </Link>
                   </div>
@@ -960,7 +962,7 @@ function EmptyOverview({
               + New trade
             </button>
             <button className="btn btn-secondary" type="button" onClick={onBrowseAssets}>
-              Browse assets
+              Research an asset
             </button>
           </div>
         </div>

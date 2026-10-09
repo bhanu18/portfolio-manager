@@ -19,6 +19,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # add your model's MetaData object here
+from db import research_models  # noqa: E402, F401 - register research metadata
 from db.orm_models import Base  # noqa: E402 - needs sys.path set above
 
 # for 'autogenerate' support

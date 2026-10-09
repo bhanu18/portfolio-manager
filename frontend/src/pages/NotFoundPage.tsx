@@ -10,8 +10,8 @@ export function NotFoundPage() {
           <div className="empty-state">
             <h1 className="page__title">Page not found</h1>
             <p className="muted">The page you're looking for doesn't exist.</p>
-            <Link to="/holdings" className="btn btn--primary">
-              Go to holdings
+            <Link to="/overview" className="btn btn--primary">
+              Go to overview
             </Link>
           </div>
         </div>

@@ -1,3 +1,6 @@
+import { HoldingsPage } from "./pages/HoldingsPage";
+import { TradesPage } from "./pages/TradesPage";
+import { LegacyAssetRedirect } from "./components/LegacyAssetRedirect";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -13,6 +16,7 @@ import { GroupDetailPage } from "./pages/GroupDetailPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { ValuationPage } from "./pages/ValuationPage";
 import { PerformancePage } from "./pages/PerformancePage";
+import { ResearchPage } from "./pages/ResearchPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 
 export default function App() {
@@ -29,17 +33,18 @@ export default function App() {
       {/* Authenticated app routes */}
       <Route element={<ProtectedRoute />}>
         {/* Overview owns its own Modernist top nav, so it sits outside <Layout>. */}
+        <Route path="/research" element={<ResearchPage />} />
+        <Route path="/research/:sessionId" element={<ResearchPage />} />
         <Route path="/overview" element={<OverviewPage />} />
-        <Route path="/holdings" element={<HoldingDetailPage />} />
         <Route path="/holdings/:symbol" element={<HoldingDetailPage />} />
 
         <Route element={<Layout />}>
-          {/* Legacy redirects — /portfolio (the old split panel) is retired in
-              favour of the Modernist /holdings page. */}
-          <Route path="/portfolio" element={<Navigate to="/holdings" replace />} />
+          <Route path="/holdings" element={<HoldingsPage />} />
+          <Route path="/trades" element={<TradesPage />} />
+          {/* Preserve old bookmarks while routing to the matching workflow. */}
+          <Route path="/portfolio" element={<Navigate to="/overview" replace />} />
           <Route path="/assets" element={<Navigate to="/holdings" replace />} />
-          <Route path="/assets/:symbol" element={<Navigate to="/holdings" replace />} />
-          <Route path="/trades" element={<Navigate to="/holdings" replace />} />
+          <Route path="/assets/:symbol" element={<LegacyAssetRedirect />} />
 
           <Route path="/profile" element={<ProfilePage />} />
 
@@ -56,7 +61,7 @@ export default function App() {
       </Route>
 
       {/* Defaults */}
-      <Route path="/" element={<Navigate to="/holdings" replace />} />
+      <Route path="/" element={<Navigate to="/overview" replace />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );

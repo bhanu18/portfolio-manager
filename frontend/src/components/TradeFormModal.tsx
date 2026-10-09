@@ -8,6 +8,8 @@
 // ---------------------------------------------------------------------------
 
 import { useEffect, useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { money } from "../lib/overview";
 import { Modal } from "./Modal";
 import * as assetsApi from "../api/assets";
 import * as tradesApi from "../api/trades";
@@ -69,7 +71,33 @@ export function TradeFormModal({
   const [verifiedName, setVerifiedName] = useState<string | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
   // Holdings summary fetched alongside verification.
-  const [holdingsQty, setHoldingsQty] = useState<number | null>(null);
+  const groupTrades = useQuery({
+    queryKey: ["trades", "group", groupId],
+    queryFn: () => tradesApi.listTradesInGroup(Number(groupId)),
+    enabled: open && groupId !== "",
+    staleTime: 0,
+  });
+  const normalizedSymbol = symbol.trim().toUpperCase();
+  const matchingTrades = groupTrades.data?.filter(
+    (t) => t.id !== trade?.id && t.symbol?.toUpperCase() === normalizedSymbol,
+  );
+  const hasUnknownSymbols = groupTrades.data?.some((t) => !t.symbol);
+  const holdingsQty =
+    groupId !== "" && normalizedSymbol && matchingTrades && !hasUnknownSymbols
+      ? matchingTrades.reduce(
+          (sum, t) => sum + (t.trade_type === "buy" ? t.quantity : -t.quantity),
+          0,
+        )
+      : null;
+  const validNumbers =
+    Number.isFinite(Number(quantity)) &&
+    Number(quantity) > 0 &&
+    Number.isFinite(Number(pricePerUnit)) &&
+    Number(pricePerUnit) > 0;
+  const resultingQuantity =
+    holdingsQty === null || !validNumbers
+      ? null
+      : holdingsQty + (tradeType === "buy" ? Number(quantity) : -Number(quantity));
 
   useEffect(() => {
     if (!open) return;
@@ -85,7 +113,6 @@ export function TradeFormModal({
     setErrors({});
     setVerifiedName(null);
     setVerifyError(null);
-    setHoldingsQty(null);
   }, [open, trade, knownSymbol, defaultGroupId]);
 
   const verifySymbol = async () => {
@@ -94,22 +121,10 @@ export function TradeFormModal({
     setVerifying(true);
     setVerifyError(null);
     setVerifiedName(null);
-    setHoldingsQty(null);
     try {
       const result = await assetsApi.getAssetBySymbol(s);
       if (isAsset(result)) {
         setVerifiedName(result.name);
-        // Also fetch existing trades for this symbol to show current holdings.
-        try {
-          const existing = await tradesApi.listTradesBySymbol(s);
-          const netQty = existing.reduce((sum, t) => {
-            return sum + (t.trade_type === "buy" ? t.quantity : -t.quantity);
-          }, 0);
-          setHoldingsQty(netQty);
-        } catch {
-          // 404 = no trades yet — that's fine, just show 0.
-          setHoldingsQty(0);
-        }
       } else {
         setVerifyError(result.error || `No asset found for "${s}".`);
       }
@@ -150,15 +165,17 @@ export function TradeFormModal({
   return (
     <Modal
       open={open}
-      title={isEdit ? `Edit trade #${trade?.id}` : "New trade"}
-      onClose={onCancel}
+      title={isEdit ? `Edit trade #${trade?.id}` : "Record trade"}
+      onClose={() => {
+        if (!busy) onCancel();
+      }}
       footer={
         <>
           <button type="button" className="btn btn--ghost" onClick={onCancel} disabled={busy}>
             Cancel
           </button>
           <button type="submit" form="trade-form" className="btn btn--primary" disabled={busy}>
-            {busy ? "Saving…" : isEdit ? "Save changes" : "Create trade"}
+            {busy ? "Saving…" : isEdit ? "Save changes" : "Record trade"}
           </button>
         </>
       }
@@ -206,12 +223,6 @@ export function TradeFormModal({
               {errors.symbol && <span className="field__error">{errors.symbol}</span>}
               {verifiedName && (
                 <span className="field__hint field__hint--ok">✓ {verifiedName}</span>
-              )}
-              {verifiedName && holdingsQty !== null && (
-                <span className="field__hint muted">
-                  Current holdings: <strong>{formatNumber(holdingsQty)}</strong> units (net across
-                  all groups)
-                </span>
               )}
               {verifyError && <span className="field__hint field__hint--warn">{verifyError}</span>}
             </>
@@ -327,6 +338,59 @@ export function TradeFormModal({
             {errors.groupId && <span className="field__error">{errors.groupId}</span>}
           </div>
         </div>
+        <section className="trade-preview" aria-label="Trade preview" aria-live="polite">
+          <strong>{tradeType === "buy" ? "Purchase total" : "Sale proceeds"}</strong>
+          <p>
+            {validNumbers
+              ? `${money(Number(quantity) * Number(pricePerUnit), currency.trim().toUpperCase())} ${currency.trim().toUpperCase()}`
+              : "Enter quantity and price to preview the total."}
+          </p>
+          <p className="field__hint">
+            Excludes fees and taxes. This records a trade; it does not place an order.
+          </p>
+          {holdingsQty !== null ? (
+            <>
+              <p>
+                {isEdit ? "Position excluding this trade" : "Current position"} in{" "}
+                {groups.find((g) => g.id === groupId)?.name}: {formatNumber(holdingsQty)} units
+              </p>
+              {!isEdit && tradeType === "sell" && holdingsQty > 0 && (
+                <div className="input-row">
+                  {[25, 50, 100].map((percent) => (
+                    <button
+                      key={percent}
+                      type="button"
+                      className="btn btn--secondary"
+                      disabled={busy}
+                      onClick={() => setQuantity(String((holdingsQty * percent) / 100))}
+                    >
+                      {percent === 100 ? "Sell all" : `Sell ${percent}%`}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {resultingQuantity !== null && (
+                <p>
+                  Position after saving: <strong>{formatNumber(resultingQuantity)} units</strong>
+                </p>
+              )}
+              {resultingQuantity !== null && resultingQuantity < 0 && (
+                <p className="field__hint field__hint--warn">
+                  This would leave a negative position in this group. Check the quantity and trade
+                  history.
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="field__hint">
+              {groupId === ""
+                ? "Select a group to preview your position."
+                : groupTrades.isFetching
+                  ? "Loading group position…"
+                  : "Group position unavailable."}
+            </p>
+          )}
+        </section>
       </form>
     </Modal>
   );

@@ -35,7 +35,7 @@ export function RegisterPage() {
     try {
       await register(name.trim(), email.trim(), password);
       toast.success("Account created — you're signed in.");
-      navigate("/assets", { replace: true });
+      navigate("/overview", { replace: true });
     } catch (err) {
       setFormError(getErrorMessage(err));
     } finally {

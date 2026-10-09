@@ -385,3 +385,107 @@ export interface PortfolioPerformanceReport {
   portfolio_score?: Score | null;
   scoring_warnings?: ScoringWarning[];
 }
+
+// Private agent-powered research contracts.
+export interface ResearchSession {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+export interface ResearchCitation {
+  url: string;
+  title: string;
+  start_index: number | null;
+  end_index: number | null;
+}
+export interface BacktestResult {
+  strategy: string;
+  period: string;
+  start: string;
+  end: string;
+  total_return: number;
+  annualized_return: number | null;
+  max_drawdown: number;
+  annualized_volatility: number | null;
+  trades: number;
+  time_invested: number;
+  curve: { date: string; equity: number; drawdown: number }[];
+}
+export interface InvestmentAnalysis {
+  price: number;
+  sma50: number;
+  sma200: number;
+  distance_sma50: number;
+  distance_sma200: number;
+  sma50_change_20_sessions: number | null;
+  sma200_change_20_sessions: number | null;
+  last_crossover: { date: string; direction: string } | null;
+  trend: { date: string; price: number; sma50: number | null; sma200: number | null }[];
+  backtests: BacktestResult[];
+  assumptions: string[];
+}
+export interface MarketSnapshot {
+  analysis?: InvestmentAnalysis | null;
+  kind: string;
+  symbol: string | null;
+  observed_at: string | null;
+  retrieved_at: string;
+  source_url: string;
+  values: Record<string, unknown>;
+  units: Record<string, string>;
+  definitions: Record<string, string>;
+  warnings: string[];
+}
+export interface ResearchEvidence {
+  title: string;
+  url: string;
+  retrieved_at: string;
+  snapshot: MarketSnapshot | null;
+}
+export type ResearchProvider = "openai" | "anthropic";
+export interface ResearchProviderOption {
+  id: ResearchProvider;
+  label: string;
+  model: string;
+  enabled: boolean;
+}
+export interface ResearchRun {
+  provider: ResearchProvider;
+  id: string;
+  session_id: string;
+  prompt: string;
+  status: "queued" | "running" | "completed" | "failed" | "cancelled";
+  stage: string;
+  report: string | null;
+  error: string | null;
+  evidence: ResearchEvidence[];
+  citations: ResearchCitation[];
+  input_tokens: number;
+  output_tokens: number;
+  tool_calls: number;
+  model_turns: number;
+  model: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
+export interface ResearchMessage {
+  id: string;
+  run_id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+}
+export interface ResearchDetail extends ResearchSession {
+  runs: ResearchRun[];
+  messages: ResearchMessage[];
+}
+export interface ResearchCapabilities {
+  providers: ResearchProviderOption[];
+  default_provider: ResearchProvider;
+  enabled: boolean;
+  message: string | null;
+  daily_limit: number;
+  max_prompt_chars: number;
+}

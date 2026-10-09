@@ -10,7 +10,7 @@ from sqlalchemy import text
 
 from core.config import settings
 from db.session import engine
-from routers import assets, auth, email, group, reports, trades
+from routers import assets, auth, email, group, reports, research, trades
 
 # Rate limiter keyed by client IP
 limiter = Limiter(key_func=get_remote_address)
@@ -52,6 +52,7 @@ app.include_router(reports.router)
 app.include_router(auth.router)
 app.include_router(group.router)
 app.include_router(email.router)
+app.include_router(research.router)
 
 
 @app.middleware("http")

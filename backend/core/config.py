@@ -1,4 +1,6 @@
-from pydantic import field_validator
+from typing import Literal
+
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,6 +31,22 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 15
+
+    # --- Research (server-side only) ---
+    OPENAI_API_KEY: str = ""
+    RESEARCH_MODEL: str = "gpt-5-mini"
+    ANTHROPIC_API_KEY: str = ""
+    ANTHROPIC_RESEARCH_MODEL: str = "claude-sonnet-5-5"
+    RESEARCH_PROVIDER: Literal["openai", "anthropic"] = "openai"
+    RESEARCH_DAILY_LIMIT: int = Field(default=20, ge=1)
+    RESEARCH_MAX_ACTIVE_PER_USER: int = Field(default=1, ge=1)
+    RESEARCH_MAX_MODEL_TURNS: int = Field(default=6, ge=1, le=20)
+    RESEARCH_MAX_TOOL_CALLS: int = Field(default=8, ge=1, le=30)
+    RESEARCH_TIMEOUT_SECONDS: int = Field(default=180, ge=10)
+    RESEARCH_MAX_INPUT_TOKENS: int = Field(default=24000, ge=2000)
+    RESEARCH_MAX_OUTPUT_TOKENS: int = Field(default=12000, ge=1000)
+    RESEARCH_LEASE_SECONDS: int = Field(default=30, ge=15)
+    RESEARCH_POLL_SECONDS: float = Field(default=2, ge=0.1)
 
     # --- Email Settings ---
     SMTP_HOST: str = "smtp.gmail.com"

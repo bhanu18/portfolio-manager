@@ -22,6 +22,21 @@ export async function listAssets(params: ListAssetsParams = {}): Promise<Asset[]
   return data;
 }
 
+/** POST /assets/batch — stored assets, available to all signed-in active users.
+ * Missing IDs are omitted. Large requests are split into bounded batches.
+ */
+export async function getAssetsByIds(assetIds: number[]): Promise<Asset[]> {
+  const ids = [...new Set(assetIds.filter((id) => Number.isInteger(id) && id > 0))];
+  const assets: Asset[] = [];
+  for (let offset = 0; offset < ids.length; offset += 500) {
+    const { data } = await apiClient.post<Asset[]>("/assets/batch", {
+      ids: ids.slice(offset, offset + 500),
+    });
+    assets.push(...data);
+  }
+  return assets;
+}
+
 /**
  * GET /assets/{asset_id} — fetch by numeric ID (the natural list/detail flow).
  * NOTE: the /assets/{value} route also handles symbol lookups server-side, so

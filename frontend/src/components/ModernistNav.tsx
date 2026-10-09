@@ -1,3 +1,4 @@
+import "../styles/trader-touches.css";
 // ---------------------------------------------------------------------------
 // ModernistNav — the app's single top nav.
 //
@@ -14,6 +15,7 @@
 // "Refresh prices" button on Overview).
 // ---------------------------------------------------------------------------
 
+import { RecordTradeButton } from "./RecordTradeButton";
 import type { ReactNode } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 
@@ -24,11 +26,21 @@ import { useAuth } from "../context/AuthContext";
 const LINKS = [
   { to: "/overview", label: "Overview" },
   { to: "/holdings", label: "Holdings" },
+  { to: "/trades", label: "Trades" },
   { to: "/reports", label: "Reports" },
+  { to: "/research", label: "Research" },
   { to: "/profile", label: "Profile" },
 ];
 
-export function ModernistNav({ children }: { children?: ReactNode }) {
+export function ModernistNav({
+  children,
+  onRecorded,
+  onRecordTrade,
+}: {
+  children?: ReactNode;
+  onRecorded?: () => void;
+  onRecordTrade?: () => void;
+}) {
   const { user, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -39,7 +51,7 @@ export function ModernistNav({ children }: { children?: ReactNode }) {
 
   return (
     <div className="nav">
-      <Link to="/holdings" className="nav-brand">
+      <Link to="/overview" className="nav-brand">
         Portfolio
       </Link>
 
@@ -52,6 +64,13 @@ export function ModernistNav({ children }: { children?: ReactNode }) {
       {children}
 
       <span className="nav-spacer" />
+      {onRecordTrade ? (
+        <button className="btn btn-primary" type="button" onClick={onRecordTrade}>
+          + Record trade
+        </button>
+      ) : (
+        <RecordTradeButton onRecorded={onRecorded} />
+      )}
 
       {user && (
         <span className="fig nav-user">

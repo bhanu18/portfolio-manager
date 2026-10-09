@@ -127,7 +127,7 @@ export function GroupDetailPage() {
     return (
       <div className="container">
         <p className="back-link">
-          <Link to="/groups">← Back to Groups</Link>
+          <Link to="/profile">← Back to Profile</Link>
         </p>
         <div className="error-state" style={{ marginTop: "1rem" }}>
           <p className="error-state__message">{parsed.message}</p>
@@ -149,7 +149,7 @@ export function GroupDetailPage() {
       <div className="page">
         {/* Back link */}
         <p className="back-link">
-          <Link to="/groups">← Back to Groups</Link>
+          <Link to="/profile">← Back to Profile</Link>
         </p>
 
         {/* Header */}

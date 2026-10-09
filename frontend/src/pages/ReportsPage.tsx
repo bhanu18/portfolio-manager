@@ -14,13 +14,12 @@ export function ReportsPage() {
         <h1 className="page__title">Reports</h1>
 
         {/* Tab nav */}
-        <div className="report-tabs" role="tablist">
+        <nav className="report-tabs" aria-label="Report type">
           <NavLink
             to="/reports/valuation"
             className={({ isActive }) =>
               isActive ? "report-tab report-tab--active" : "report-tab"
             }
-            role="tab"
           >
             Asset Valuation
           </NavLink>
@@ -29,14 +28,13 @@ export function ReportsPage() {
             className={({ isActive }) =>
               isActive ? "report-tab report-tab--active" : "report-tab"
             }
-            role="tab"
           >
             Portfolio Performance
           </NavLink>
-        </div>
+        </nav>
 
-        {/* Redirect /reports → /reports/valuation */}
-        {atRoot && <Navigate to="/reports/valuation" replace />}
+        {/* Redirect /reports → /reports/performance */}
+        {atRoot && <Navigate to="/reports/performance" replace />}
 
         {/* Child route renders here */}
         <Outlet />

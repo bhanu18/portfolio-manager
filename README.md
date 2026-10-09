@@ -124,3 +124,107 @@ Health check: `GET /health` (reports database connectivity).
 passlib/bcrypt · slowapi · yfinance · pandas · pytest · ruff · mypy
 
 **Frontend:** React 18 · TypeScript · Vite · React Router · TanStack Query · axios · ESLint · Prettier
+
+## Research desk
+
+Research US stocks and ETFs, Treasury yields and bills, money-market funds, and bond
+issuer risks in **Research**. Ask a question, inspect the dated evidence alongside a
+saved analyst brief, and ask follow-ups. Use **Research** on a holding to prefill its
+ticker; portfolio balances are never sent to the agent. Sessions are private to their
+owner, including when that owner belongs to a shared portfolio group.
+
+The agent supports OpenAI Responses (default `gpt-5-mini`) and Anthropic Messages
+(default `claude-sonnet-5-5`) with cited web search,
+read-only Yahoo market snapshots, and the official US Treasury XML feeds. Reports
+retain inline citations, source URLs, observation dates, retrieval times, units, and
+provider warnings. Quotes may be delayed; individual bond pricing, bond accounting,
+trading, scheduled monitoring, and shared reports are not included.
+
+### Setup
+
+1. Apply migrations: `cd backend && alembic upgrade head`.
+2. Set `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` in `backend/.env`. Keys stay on the server. `RESEARCH_MODEL`
+   can select another Responses model supporting web search and function tools.
+3. Start the API normally, then start a **separate process** from `backend/`:
+
+   ```bash
+   source venv/bin/activate
+   python -m service.research.worker
+   ```
+
+The API only queues work. At least one worker must run against the same database and
+configuration as the API. Multiple workers use row locks and skip locked jobs to claim
+work atomically (MySQL 8+). Navigation or refresh does not stop a job. Workers renew
+30-second leases every 10 seconds. Shutdown, expired leases, missing workers, and the
+three-minute run deadline produce retryable failures; partial evidence remains saved.
+Cancellation stops future work and cancels an in-flight HTTP request when observed by
+the heartbeat; a provider request already accepted may still incur charges.
+
+Without a key, saved sessions remain readable and the composer shows a setup message.
+The frontend polls active sessions every two seconds. The API exposes owner-scoped
+`/research/sessions`, `/research/sessions/{id}/messages`, `/research/runs/{id}`, and
+`/research/runs/{id}/cancel`; interactive schemas are available at `/docs`.
+
+### Limits and validation
+
+All research settings are documented in `backend/.env.example`. Defaults are one
+active run per user, 20 starts per UTC day, six model turns, eight total tool calls,
+24,000 input tokens and 12,000 output tokens per run. Input is conservatively bounded
+by UTF-8 byte count before each model call; old conversation context is trimmed.
+Usage totals include reasoning tokens reported by the provider. Cancelled and failed
+starts count toward the daily limit, and deleting a session does not reset it.
+These are request/token limits, not an exact dollar spending cap; configure provider
+billing controls as appropriate. No provider retries happen automatically.
+
+Run `pytest tests/test_research_agent.py` for offline provider/agent checks and
+`pytest tests/test_research_api.py` with the disposable `TEST_DATABASE_URL` for API,
+queue, migration round-trip, and isolation checks. Run `npm run test:research` in
+`frontend/` for citation, comparison-table, and HTML-safety rendering checks. CI never
+needs a paid provider key. For a live smoke test after
+setup, research Apple, compare SPY/VTI, compare Treasury bills with money-market funds,
+ask a follow-up, reload an active session, and verify its citations and observation dates.
+
+### Research provider selection
+
+Choose OpenAI or Anthropic in the research composer, including for follow-up questions.
+Set `ANTHROPIC_API_KEY` to enable Claude and optionally change
+`ANTHROPIC_RESEARCH_MODEL=claude-sonnet-5-5`. `RESEARCH_MODEL` controls OpenAI.
+`RESEARCH_PROVIDER=openai` sets the default; if only one provider is configured it
+is selected automatically. Unconfigured providers are disabled in the selector.
+
+Run `alembic upgrade head` from `backend` and restart both the API and research
+worker after configuration changes. Both processes need the selected provider's key.
+Each queued run saves its provider and model; configuration changes do not switch an
+existing run. Existing reports retain OpenAI as their provider. Provider errors never
+silently switch to another provider. Claude uses its basic web-search tool plus the
+same read-only stock and Treasury tools, with the same run limits and private storage.
+
+### Investment decision research
+
+Stock/ETF research now includes a read-only `investment_analysis` tool, shared by
+OpenAI and Anthropic. It calculates SMA50/SMA200, 20-session MA changes, distance
+from each average, and the latest crossover. Three fixed strategies are compared:
+buy-and-hold, price above SMA200, and SMA50 above SMA200. The report shows sampled
+price/equity/drawdown charts and full-resolution return, annualized return, maximum
+drawdown, volatility, one-way trade count, and exposure metrics.
+
+The engine requests up to ten years of evaluation history plus 200 warm-up observations.
+Signals execute at the following session's close. Fees plus slippage are 10 basis points
+per entry/exit, cash earns zero, and adjusted prices approximate dividend reinvestment.
+Open positions are marked to market, without a forced exit. No taxes or market impact
+are modeled. Earlier 70% and recent 30% evaluations appear when each has at least 252
+observations; rules are never optimized, and these are not independently unseen tests.
+Insufficient/invalid data is unavailable; stale, gapped, and short history is flagged.
+These are historical simulations on selected tickers, not forecasts.
+
+Both models read the same editable instructions from
+`backend/service/research/prompt.md`. Restart research workers after editing.
+The prompt requests valuation with verified reporting dates and a bull/base/bear
+scenario table, using a disclosed 12-month horizon unless the user supplies one.
+Unsourced price targets or probabilities are prohibited; qualitative scenarios are
+used when numerical assumptions cannot be substantiated. Current Yahoo fundamentals
+must not be used as historical backtest inputs.
+
+Chart data persists within existing research evidence JSON; no new migration is
+needed for this analysis upgrade. Existing reports remain readable; start a new turn
+to request the expanded analysis.

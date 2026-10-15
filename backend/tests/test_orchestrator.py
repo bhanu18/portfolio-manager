@@ -111,6 +111,43 @@ def test_heuristics():
     assert (merged.kind, merged.symbols) == ("analysis", ["NVDA", "AMD"])
 
 
+@pytest.mark.parametrize(
+    ("prompt", "symbols"),
+    [
+        ("$MSFT market cap and forward P/E", ["MSFT"]),  # not P, E
+        ("Compare BND's yield to 6-month T-bills", ["BND"]),  # not T
+        ("How is the S&P 500 doing vs QQQ?", ["QQQ"]),  # not S, P
+        ("What did the FOMC say?", []),  # acronym, not a ticker
+        ("How much is Apple stock?", ["AAPL"]),  # company name
+        ("compare spy and vti", ["SPY", "VTI"]),  # lowercase known tickers
+        ("Is there a meta-analysis of momentum?", []),  # "meta" inside a word
+        ("Price of BRK.B and F", ["BRK.B", "F"]),  # real one-letter tickers still work
+    ],
+)
+def test_symbol_extraction(prompt, symbols):
+    assert heuristic_profile(prompt).symbols == symbols
+
+
+def test_freshness_needs_web_only_without_market_data():
+    assert not heuristic_profile("NVDA price right now").needs_web
+    assert not heuristic_profile("What are 3-month T-bill rates today?").needs_web
+    assert heuristic_profile("What's moving markets right now?").needs_web
+    assert heuristic_profile("How did the Fed decision this week affect Treasury yields?").needs_web
+    assert not heuristic_profile("Current 2-year T-note yield?").needs_web
+
+
+def test_follow_ups_keep_the_treasury_topic_unless_a_ticker_is_asked():
+    previous = "Show the Treasury yield curve"
+    assert heuristic_profile("Thanks, what about the 10-year?", previous).treasury
+    follow_up = heuristic_profile("what about AMZN?", previous)
+    assert (follow_up.treasury, follow_up.symbols) == (False, ["AMZN"])
+
+
+def test_buy_questions_are_analysis():
+    assert heuristic_profile("Best AI stocks to buy").kind == "analysis"
+    assert heuristic_profile("AAPL Q3 EPS vs estimates").kind == "news"
+
+
 def test_candidates_fall_back_and_skip_local_for_web(setup, monkeypatch):
     target = [(t.provider, t.model) for t in candidates("local")]
     assert target[0] == ("local", "qwen3:8b")

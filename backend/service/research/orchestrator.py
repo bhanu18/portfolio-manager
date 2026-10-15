@@ -52,24 +52,53 @@ CHAINS: dict[str, tuple[str, ...]] = {
 }
 
 SYMBOL = re.compile(r"^[A-Z][A-Z.\-]{0,9}$")
-TICKER = re.compile(r"\$([A-Za-z][A-Za-z.\-]{0,9})\b|\b([A-Z]{1,5}(?:\.[A-Z])?)\b")
+# Bare tickers are uppercase words not glued to "/", "-", "&" or letters, so "P/E", "T-bill"
+# and "S&P" are not read as tickers P, E, T or S.
+TICKER = re.compile(
+    r"\$([A-Za-z][A-Za-z.\-]{0,9})\b|(?<![\w/\-&.'])([A-Z]{1,5}(?:\.[A-Z])?)(?![\w/\-&])"
+)
+# Rules-only floor for names and lowercase tickers; the local classifier covers the long tail.
+# Only unambiguous large caps and ETFs: e.g. "Ford" is left out (often a bond issuer question).
+COMPANY_TICKERS = {
+    "apple": "AAPL", "microsoft": "MSFT", "nvidia": "NVDA", "alphabet": "GOOGL",
+    "google": "GOOGL", "amazon": "AMZN", "facebook": "META", "tesla": "TSLA",
+    "netflix": "NFLX", "berkshire": "BRK.B", "jpmorgan": "JPM", "coca-cola": "KO",
+    "walmart": "WMT", "broadcom": "AVGO", "costco": "COST", "exxon": "XOM",
+}  # fmt: skip
+KNOWN_LOWER = {
+    "aapl", "msft", "nvda", "googl", "goog", "amzn", "meta", "tsla", "nflx", "jpm", "avgo",
+    "spy", "qqq", "voo", "vti", "iwm", "dia", "schd", "tlt", "bnd", "sgov",
+}  # fmt: skip
+NAMED = re.compile(
+    r"(?<![\w\-])(" + "|".join(map(re.escape, [*COMPANY_TICKERS, *KNOWN_LOWER])) + r")(?![\w\-])",
+    re.IGNORECASE,
+)
 NOT_TICKERS = {
     "A", "I", "AI", "AM", "AN", "AND", "ARE", "AS", "AT", "BE", "BY", "CEO", "CFO", "CPI", "DO",
     "EPS", "ETF", "ETFS", "EU", "FED", "FOR", "GDP", "HOW", "IF", "IN", "IPO", "IS", "IT", "MA",
     "ME", "MY", "NO", "NOT", "OF", "OK", "ON", "OR", "PE", "SEC", "SMA", "SO", "THE", "TO",
     "UK", "US", "USA", "USD", "VS", "WHAT", "WHY", "YTD", "Q1", "Q2", "Q3", "Q4",
+    # Finance acronyms that are not tickers.
+    "FOMC", "IRS", "ESG", "AUM", "NAV", "YOY", "QOQ", "CAGR", "EBITDA", "ROE", "ROI", "PB",
+    "PEG", "DCF", "REIT", "REITS", "NYSE", "SPAC", "ATH", "FX", "APR", "APY", "TTM",
 }  # fmt: skip
 ANALYSIS = re.compile(
     r"backtest|moving average|\bs?ma ?(50|200)\b|valuation|valued|\bbull|\bbear|scenario"
-    r"|thesis|should i (buy|sell|hold)|invest in|risk",
+    r"|thesis|should i (buy|sell|hold)|invest in|risk|\bto (buy|sell)\b|worth buying",
     re.IGNORECASE,
 )
 WEB = re.compile(
-    r"news|latest|recent|today|this week|earnings|guidance|announce|why (did|is|are)|analysts?"
-    r"|upgrade|downgrade|lawsuit|merger|acquisition|outlook|issuer|bond",
+    r"news|headlines|earnings|estimates|consensus|guidance|announce|how did|why (did|is|are|does)"
+    r"|analysts?|upgrade|downgrade|lawsuit|merger|acquisition|outlook|issuer|\bfed\b|fomc"
+    r"|(?<![\w-])bonds?\b",  # issuer bonds; "T-bond" is a Treasury lookup
     re.IGNORECASE,
 )
-TREASURY = re.compile(r"treasury|treasuries|yield curve|t-?bills?|money market", re.IGNORECASE)
+# Freshness alone needs the web only when no market-data tool can answer: "AAPL price today"
+# and "T-bill rates today" are current from the data step.
+FRESH = re.compile(r"latest|recent|today|this week|right now", re.IGNORECASE)
+TREASURY = re.compile(
+    r"treasury|treasuries|yield curve|t-?bills?|t-?notes?|t-?bonds?|money market", re.IGNORECASE
+)
 BILLS = re.compile(r"t-?bills?|\bbills?\b|money market", re.IGNORECASE)
 
 CLASSIFY = """Route a market-research question. Reply with JSON only:
@@ -118,14 +147,25 @@ def clean_symbols(value: Any) -> list[str]:
 
 
 def extract_symbols(text: str) -> list[str]:
-    return clean_symbols([dollar or bare for dollar, bare in TICKER.findall(text)])
+    """Tickers in order of appearance: $-prefixed, bare uppercase, then known names."""
+    found = [(m.start(), m.group(1) or m.group(2)) for m in TICKER.finditer(text)]
+    for match in NAMED.finditer(text):
+        word = match.group(1).lower()
+        found.append((match.start(), COMPANY_TICKERS.get(word, word.upper())))
+    return clean_symbols([symbol for _, symbol in sorted(found)])
 
 
 def heuristic_profile(prompt: str, previous: str = "") -> TaskProfile:
     """Zero-cost routing floor; also the fallback when no local classifier is available."""
-    symbols = extract_symbols(prompt) or extract_symbols(previous)
-    treasury = bool(TREASURY.search(prompt))
-    needs_web = bool(WEB.search(prompt))
+    asked = extract_symbols(prompt)
+    symbols = asked or extract_symbols(previous)
+    # A short follow-up ("what about the 10-year?") keeps the previous question's Treasury topic.
+    treasury = bool(TREASURY.search(prompt)) or (
+        not asked and bool(previous) and bool(TREASURY.search(previous))
+    )
+    needs_web = bool(WEB.search(prompt)) or (
+        bool(FRESH.search(prompt)) and not (symbols or treasury)
+    )
     kind: Kind
     if ANALYSIS.search(prompt):
         kind = "analysis"

@@ -47,13 +47,28 @@ Set `LANGSMITH_API_KEY` (and `LANGSMITH_TRACING=true` to also trace the worker) 
 runs in the LangSmith UI. Cloud sessions need `api.smith.langchain.com` on the network
 allowlist.
 
-## Baseline (2026-10-15, rules only, 40 examples)
+## Routing results (rules only)
 
-| kind_match | routing_safe | needs_web_match | symbols_match | treasury_match |
-|---|---|---|---|---|
-| 0.925 | 0.975 | 0.95 | 0.85 | 0.975 |
+| date | examples | kind | routing_safe | needs_web | symbols | treasury |
+|---|---|---|---|---|---|---|
+| 2026-10-15 baseline | 40 | 0.925 | 0.975 | 0.95 | 0.85 | 0.975 |
+| 2026-10-15 after router fixes | 54 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 |
 
-Known misses: `P/E` yields tickers `E`/`P`; `T-bill` yields `T` (AT&T); lowercase tickers
-and company names ("Apple") are not recognized, so the question falls back to news or clarify;
-"today" forces web search on a T-bill lookup; a "10-year" follow-up loses the Treasury flag.
-Re-run with a local classifier and with `full` before changing the orchestrator.
+The fixes were written against the first 40 examples, so 14 `holdout-*` examples were added to
+test generalisation. **Before** any tuning on them, they scored kind 0.714, needs_web 0.714,
+symbols 0.929. The misses were fixed and are now part of the dataset, so the 1.0 above is
+partly fitted. Add fresh examples, not only fixes, when changing the rules again.
+
+Fixed:
+- `P/E`, `T-bill` and `S&P` are no longer read as tickers: bare tickers can't touch `/ - & '`.
+- Finance acronyms (FOMC, NAV, EBITDA…) are not tickers.
+- A small large-cap name map plus known lowercase tickers ("apple", "nvda", "spy").
+- Freshness words ("today", "right now") need the web only when no ticker or Treasury topic
+  can answer from market data.
+- "how did", "estimates", Fed/FOMC questions go to the web; "T-note"/"T-bond" are Treasury
+  terms, not issuer bonds.
+- Short follow-ups keep the previous Treasury topic unless they name a ticker.
+- "…to buy" / "worth buying" questions are analysis.
+
+The long tail (other company names, unusual phrasing) is the local classifier's job; run
+`routing` with `LOCAL_LLM_MODEL` set to measure it.

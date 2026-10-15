@@ -38,3 +38,17 @@
 {"id": "lowercase-ticker", "inputs": {"prompt": "price of nvda", "history": []}, "outputs": {"kind": "lookup", "needs_web": false, "symbols": ["NVDA"], "treasury": false}}
 {"id": "unknown-ticker", "inputs": {"prompt": "What is ZZZZ trading at?", "history": []}, "outputs": {"kind": "lookup", "needs_web": false, "symbols": ["ZZZZ"], "treasury": false}}
 {"id": "bond-etf-vs-tbill", "inputs": {"prompt": "Compare BND's yield to 6-month T-bills", "history": []}, "outputs": {"kind": "lookup", "needs_web": false, "symbols": ["BND"], "treasury": true}}
+{"id": "holdout-pb-ratio", "inputs": {"prompt": "What is JPM's P/B ratio?", "history": []}, "outputs": {"kind": "lookup", "needs_web": false, "symbols": ["JPM"], "treasury": false}}
+{"id": "holdout-sp500", "inputs": {"prompt": "How is the S&P 500 doing vs QQQ?", "history": []}, "outputs": {"kind": "lookup", "needs_web": false, "symbols": ["QQQ"], "treasury": false}}
+{"id": "holdout-t-notes", "inputs": {"prompt": "Current 2-year T-note yield?", "history": []}, "outputs": {"kind": "lookup", "needs_web": false, "symbols": [], "treasury": true}}
+{"id": "holdout-lower-etf", "inputs": {"prompt": "compare spy and vti expense ratios", "history": []}, "outputs": {"kind": "lookup", "needs_web": false, "symbols": ["SPY", "VTI"], "treasury": false}}
+{"id": "holdout-company-microsoft", "inputs": {"prompt": "Is Microsoft overvalued?", "history": []}, "outputs": {"kind": "analysis", "needs_web": false, "symbols": ["MSFT"], "treasury": false}}
+{"id": "holdout-company-tesla-news", "inputs": {"prompt": "Why is Tesla falling?", "history": []}, "outputs": {"kind": "news", "needs_web": true, "symbols": ["TSLA"], "treasury": false}}
+{"id": "holdout-meta-analysis", "inputs": {"prompt": "Is there a meta-analysis of momentum strategies?", "history": []}, "outputs": {"kind": "news", "needs_web": true, "symbols": [], "treasury": false}}
+{"id": "holdout-price-right-now", "inputs": {"prompt": "NVDA price right now", "history": []}, "outputs": {"kind": "lookup", "needs_web": false, "symbols": ["NVDA"], "treasury": false}}
+{"id": "holdout-fresh-no-ticker", "inputs": {"prompt": "What's moving markets right now?", "history": []}, "outputs": {"kind": "news", "needs_web": true, "symbols": [], "treasury": false}}
+{"id": "holdout-fomc", "inputs": {"prompt": "What did the FOMC say about rates?", "history": []}, "outputs": {"kind": "news", "needs_web": true, "symbols": [], "treasury": false}}
+{"id": "holdout-followup-bills", "inputs": {"prompt": "and 6-month bills?", "history": [{"role": "user", "content": "3-month T-bill rates"}, {"role": "assistant", "content": "(previous report)"}]}, "outputs": {"kind": "lookup", "needs_web": false, "symbols": [], "treasury": true}}
+{"id": "holdout-followup-new-ticker", "inputs": {"prompt": "what about AMZN?", "history": [{"role": "user", "content": "Treasury yield curve"}, {"role": "assistant", "content": "(previous report)"}]}, "outputs": {"kind": "lookup", "needs_web": false, "symbols": ["AMZN"], "treasury": false}}
+{"id": "holdout-q3-eps", "inputs": {"prompt": "AAPL Q3 EPS vs estimates", "history": []}, "outputs": {"kind": "news", "needs_web": true, "symbols": ["AAPL"], "treasury": false}}
+{"id": "holdout-ai-stocks", "inputs": {"prompt": "Best AI stocks to buy", "history": []}, "outputs": {"kind": "analysis", "needs_web": false, "symbols": [], "treasury": false}}

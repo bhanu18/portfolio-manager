@@ -50,6 +50,13 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 - Never commit `.env` files (root `.gitignore` covers backend + frontend).
 - `venv/` and `node_modules/` are not copied — recreate after cloning.
 
+## Research service (LLM orchestration)
+- Lives in `backend/service/research/`; runs in a separate worker process (`python -m service.research.worker`) that claims queued `research_runs` rows. Fuller notes: `context.md` at repo root.
+- `agent.py` (OpenAI Responses API), `anthropic_agent.py` (Messages API), `local_agent.py` (OpenAI-compatible/Ollama, plus `local_json` for routing) are hand-rolled httpx tool loops sharing `ResearchAgent` (budgets, evidence, citations, `checkpoint` progress). No LLM SDK or framework is used.
+- `orchestrator.py`: `ResearchOrchestrator` (Auto) = classify (local JSON + regex floor) → gather (deterministic tools, no LLM) → web (cheap tier) → writer (tier by kind), with `ProviderUnavailable` failover + per-process cooldowns. `FailoverResearchAgent` = explicit provider with failover. Per-step usage goes in `research_runs.steps` (the frontend renders it — keep that shape).
+- Tests: `tests/test_orchestrator.py` swaps `AGENTS` with `FakeAgent`; `test_research_agent.py`, `test_anthropic_research.py`, `test_local_agent.py` mock httpx payloads.
+- Planned (2026-10-15, not started): move orchestration to LangChain/LangGraph with LangSmith tracing + evals. Agreed order: (1) LangSmith tracing via `@traceable` on current code, (2) eval dataset + evaluators baseline on current orchestrator, (3) swap provider adapters to LangChain chat models, (4) rebuild Auto as a LangGraph `StateGraph`, gated on eval parity. Tracing off by default and in tests; worker must flush traces on shutdown; LangSmith reads `os.environ`, not pydantic settings.
+
 ## Cloud sessions (Claude Code on the web)
 - `.claude/settings.json` runs `scripts/cloud_setup.sh` on SessionStart (`startup|resume`, 600s timeout). The script exits immediately unless `CLAUDE_CODE_REMOTE=true`, so it no-ops locally.
 - Cloud VMs have PostgreSQL but **no MySQL** until the hook starts MariaDB (`service mariadb start`, fallback `mysqld_safe`). It creates `portfolio` + `portfolio_test` and a throwaway `ci`/`ci` user (same as CI), installs deps, and runs `alembic upgrade head`.

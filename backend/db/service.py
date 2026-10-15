@@ -180,7 +180,12 @@ async def get_trade_by_id(db: AsyncSession, trade_id: int):
     query = (
         select(orm_models.Trade)
         .where(orm_models.Trade.id == trade_id)
-        .options(selectinload(orm_models.Trade.group).selectinload(orm_models.Group.members))
+        # `Group.members` is a hybrid property and cannot be eager-loaded; load what it reads.
+        .options(
+            selectinload(orm_models.Trade.group)
+            .selectinload(orm_models.Group.member_associations)
+            .selectinload(orm_models.UserGroupAssociation.user)
+        )
     )
     result = await db.execute(query)
     return result.scalar_one_or_none()

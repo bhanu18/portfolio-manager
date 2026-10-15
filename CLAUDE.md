@@ -44,11 +44,14 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 - Run ruff from `backend/` (config in `backend/pyproject.toml`). Local `alembic/` dir shadows the package for isort, hence `known-third-party = ["alembic"]`.
 - mypy: `db/orm_models.py` + `db/service.py` have error codes disabled (legacy `Column()` models). Migrating to `Mapped[]` lets those overrides go.
 - ESLint: `react-hooks/set-state-in-effect` is a warning (AssetFormModal, TradeFormModal reset form state in effects) — fix with key-based remount, then make it an error.
-- Tests: `tests/conftest.py` uses httpx AsyncClient + savepoint rollback; wipes the test DB by reflect+drop (Alembic downgrade of `b46451958cb3` is broken: unnamed FK). slowapi limiters are disabled in tests.
+- Tests: `tests/test_reports.py` fakes every `_blocking_*` lookup + `calculate_performance_scores` via the `market` fixture — no network in tests. After `expire_all()` (e.g. `member_headers`), read ORM attributes only via `await db_session.refresh(obj)` or ids captured beforehand, or you get MissingGreenlet. `tests/conftest.py` uses httpx AsyncClient + savepoint rollback; wipes the test DB by reflect+drop (Alembic downgrade of `b46451958cb3` is broken: unnamed FK). slowapi limiters are disabled in tests.
 - Root `.gitignore` is the Python template; its `lib/` rule once hid `frontend/src/lib` — anchor new generic rules to `backend/`.
 - Use `lifespan` in main.py, not `@app.on_event`. New settings go in `core/config.py` AND `.env.example`.
 - Never commit `.env` files (root `.gitignore` covers backend + frontend).
 - `venv/` and `node_modules/` are not copied — recreate after cloning.
+
+- `Group.members` is a `hybrid_property`: never `selectinload` it — load `Group.member_associations` → `UserGroupAssociation.user` (as `get_group_by_id` / `get_trade_by_id` do).
+- Portfolio performance cost basis is true FIFO (sells consume the earliest buys), fixed 2026-10-15; it previously kept the earliest lots and understated cost.
 
 ## Cloud sessions (Claude Code on the web)
 - `.claude/settings.json` runs `scripts/cloud_setup.sh` on SessionStart (`startup|resume`, 600s timeout). The script exits immediately unless `CLAUDE_CODE_REMOTE=true`, so it no-ops locally.
@@ -66,7 +69,7 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 - Known gaps / backlog:
   - Frontend PerformancePage expects `portfolio_score` / per-holding `score` (see docs/backend/portfolio_performance_scoring.md) but the backend does NOT implement scoring yet.
   - `total_dividends_base` in reports is never calculated (always 0).
-  - Tests only cover auth; add trades/reports/groups tests.
+  - Groups router has no tests yet (auth, trades CRUD + import, reports, research, scoring are covered).
   - README screenshots placeholder (docs/screenshots/).
   - Alembic downgrade of b46451958cb3 fails; `datetime.utcnow()` (DTZ003 ignored) and `(str, Enum)` (UP042 ignored) to revisit.
   - GitHub repo is bhanu18/portfolio-manager (renamed from portfolio_tracker); origin and badges updated.

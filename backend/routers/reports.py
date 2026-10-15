@@ -400,14 +400,14 @@ async def get_portfolio_performance(
         if asset_id not in assets_dict:
             continue
 
-        quantity_remaining = holding_data["quantity"]
+        # FIFO: sells consume the earliest buys first; what is left is the open lots.
+        quantity_to_consume = sum(sell.quantity for sell in holding_data["sells"])
         lots: list[tuple[Any, float]] = []
         for buy_trade in sorted(holding_data["buys"], key=lambda x: x.trade_date):
-            if quantity_remaining <= 0:
-                break
-            qty_from_this_trade = min(buy_trade.quantity, quantity_remaining)
-            lots.append((buy_trade, qty_from_this_trade))
-            quantity_remaining -= qty_from_this_trade
+            consumed = min(buy_trade.quantity, quantity_to_consume)
+            quantity_to_consume -= consumed
+            if buy_trade.quantity > consumed:
+                lots.append((buy_trade, buy_trade.quantity - consumed))
 
         if lots:
             lots_by_asset[asset_id] = lots

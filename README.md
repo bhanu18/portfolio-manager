@@ -37,37 +37,6 @@ LangGraph across OpenAI, Anthropic and local models, traced and evaluated with L
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    subgraph Browser
-        UI["React SPA<br/>Vite · TypeScript · React Query"]
-    end
-    subgraph API["FastAPI (async)"]
-        R["Routers<br/>auth · assets · trades · groups · reports · research"]
-        S["Services<br/>JWT/bcrypt · SMTP"]
-        D["SQLAlchemy 2 (async)"]
-    end
-    DB[("MySQL<br/>incl. research job queue")]
-    YF["Yahoo Finance<br/>(prices, benchmark)"]
-    FX["FX rates"]
-    subgraph Worker["Research worker (separate process)"]
-        G["LangGraph Auto pipeline"]
-        A["LangChain agents<br/>+ budget middleware"]
-    end
-    LLM["OpenAI · Anthropic<br/>local (Ollama, LM Studio)"]
-    LS["LangSmith<br/>(optional tracing, evals)"]
-
-    UI -- "REST + Bearer JWT" --> R
-    R --> S
-    R --> D --> DB
-    R --> YF
-    R --> FX
-    Worker -- "claim runs, save progress" --> DB
-    G --> A --> LLM
-    A --> YF
-    Worker -.-> LS
-```
-
 ```
 portfolio-manager/
 ├── backend/          FastAPI, SQLAlchemy (aiomysql), Alembic, pytest

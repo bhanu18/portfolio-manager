@@ -114,11 +114,7 @@ async def test_both_agents_share_calculation_tool_and_persist_charts(monkeypatch
     )
     for cls in (agent_module.ResearchAgent, LangChainAnthropicAgent):
         agent = cls(progress)
-        output = json.loads(
-            await agent.execute_tool(
-                {"name": "investment_analysis", "arguments": '{"symbol":"AAPL"}'}
-            )
-        )
+        output = json.loads(await agent.market_tool("investment_analysis", {"symbol": "AAPL"}))
         assert output["analysis"]["sma200"] == 100
         assert "trend" not in output["analysis"]
         assert "curve" not in output["analysis"]["backtests"][0]

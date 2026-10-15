@@ -31,6 +31,8 @@ def api(monkeypatch):
         assert request.url.path == "/v1/messages"
         requests.append(json.loads(request.content))
         status, body = responses.pop(0)
+        if status == 200:  # real responses have unique ids; LangGraph merges messages by id
+            body = {**body, "id": f"msg_{len(requests)}"}
         return httpx2.Response(status, json=body)
 
     def client(**params):

@@ -1,4 +1,5 @@
-"""Bounded Responses API agent. Only explicit read-only tools are executable."""
+"""Shared research-agent state: budgets, evidence, citations, progress and the read-only market
+tools. Provider loops live in `langchain_agent.py`; only explicit read-only tools are executable."""
 
 import json
 from collections.abc import Awaitable, Callable
@@ -7,15 +8,12 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from langsmith import traceable
 
 from core.config import settings
-from models.research import Citation, Evidence, MarketSnapshot
+from models.research import Evidence, MarketSnapshot
 from service.research.errors import (  # noqa: F401  (re-exported for existing imports)
-    CREDIT_HINTS,
     ProviderUnavailable,
     ResearchFailure,
-    http_failure,
 )
 from service.research.investment import investment_snapshot
 from service.research.providers import safe_url, stock_snapshot, treasury_snapshot
@@ -133,27 +131,8 @@ class ResearchAgent:
                 ).model_dump()
             )
 
-    async def execute_tool(self, item: dict[str, Any]) -> str:
-        name = item.get("name")
-        traced = traceable(
-            run_type="tool",
-            name=name if isinstance(name, str) else "unknown_tool",
-            process_inputs=lambda inputs: {"arguments": inputs["item"].get("arguments")},
-        )(self.run_tool)
-        result: str = await traced(item)
-        return result
-
-    async def run_tool(self, item: dict[str, Any]) -> str:
-        """Decode a provider's function call, then run it as a market tool."""
-        name = item.get("name")
-        try:
-            args = json.loads(item.get("arguments", "{}"))
-        except (ValueError, TypeError):
-            args = None  # reported by market_tool as an argument error
-        return await self.market_tool(name if isinstance(name, str) else "", args)
-
     async def market_tool(self, name: str, args: Any) -> str:
-        """Run one read-only market tool. Shared by the httpx loops and LangChain tools.
+        """Run one read-only market tool (called by the LangChain tools in `tools.py`).
 
         Always returns model-context JSON; failures become safe error messages, never raise.
         """
@@ -203,152 +182,5 @@ class ResearchAgent:
             return json.dumps({"error": "Market provider failed. This data is unavailable."})
 
     async def run(self, prompt: str, history: list[dict[str, str]]) -> str:
-        # A byte count is a conservative token upper bound (including non-ASCII text).
-        # History is trimmed by whole turns, keeping the current question intact.
-        inputs: list[dict[str, Any]] = [*history, {"role": "user", "content": prompt}]
-        while (
-            len(inputs) > 1
-            and len(json.dumps(inputs, ensure_ascii=False).encode())
-            > settings.RESEARCH_MAX_INPUT_TOKENS // 2
-        ):
-            del inputs[: min(2, len(inputs) - 1)]
-        instructions = self.instructions()
-        async with httpx.AsyncClient(timeout=httpx.Timeout(90, connect=10)) as client:
-            for _ in range(settings.RESEARCH_MAX_MODEL_TURNS):
-                remaining_tools = settings.RESEARCH_MAX_TOOL_CALLS - self.tool_calls
-                remaining_output = self.output_budget - self.output_tokens
-                if remaining_output < 500:
-                    raise ResearchFailure(
-                        "The response token budget was reached. Retry with a narrower question."
-                    )
-                tools = (
-                    [tool for tool in TOOLS if self.tool_allowed(tool.get("name", tool["type"]))]
-                    if remaining_tools > 0
-                    else []
-                )
-                bound = len(
-                    json.dumps(
-                        {"input": inputs, "instructions": instructions, "tools": tools},
-                        ensure_ascii=False,
-                    ).encode()
-                )
-                if self.input_tokens + bound > settings.RESEARCH_MAX_INPUT_TOKENS:
-                    raise ResearchFailure(
-                        "The research context budget was reached. Try a narrower question or a new session."
-                    )
-                self.model_turns += 1
-                await self.checkpoint("Searching sources and drafting analysis")
-                payload: dict[str, Any] = {
-                    "model": self.model,
-                    "instructions": instructions,
-                    "input": inputs,
-                    "tools": tools,
-                    "store": False,
-                    "include": ["web_search_call.action.sources", "reasoning.encrypted_content"],
-                    "max_output_tokens": min(4000, remaining_output),
-                }
-                if tools:
-                    payload["max_tool_calls"] = remaining_tools
-                try:
-                    response = await client.post(
-                        "https://api.openai.com/v1/responses",
-                        headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
-                        json=payload,
-                    )
-                    response.raise_for_status()
-                except httpx.HTTPError as error:
-                    raise http_failure(error, "OpenAI") from None
-                data = response.json()
-                usage = data.get("usage") or {}
-                self.input_tokens += int(usage.get("input_tokens", bound))
-                self.output_tokens += int(usage.get("output_tokens", min(4000, remaining_output)))
-                outputs = data.get("output", [])
-                calls = []
-                text_parts: list[str] = []
-                self.citations = []
-                for item in outputs:
-                    item_type = item.get("type")
-                    if item_type in ("web_search_call", "function_call"):
-                        self.tool_calls += 1
-                    if item_type == "web_search_call":
-                        for source in (item.get("action") or {}).get("sources", []):
-                            self.add_source(
-                                source.get("title") or source.get("url", "Source"),
-                                source.get("url", ""),
-                            )
-                    elif item_type == "function_call":
-                        calls.append(item)
-                    elif item_type == "message":
-                        for content in item.get("content", []):
-                            if content.get("type") == "refusal":
-                                raise ResearchFailure(
-                                    "The research provider could not answer this request. Rephrase the question."
-                                )
-                            if content.get("type") != "output_text":
-                                continue
-                            offset = sum(len(part) + 2 for part in text_parts)
-                            value = content.get("text", "")
-                            text_parts.append(value)
-                            for annotation in content.get("annotations", []):
-                                if annotation.get("type") == "url_citation" and safe_url(
-                                    annotation.get("url", "")
-                                ):
-                                    start, end = (
-                                        annotation.get("start_index"),
-                                        annotation.get("end_index"),
-                                    )
-                                    valid_span = (
-                                        isinstance(start, int)
-                                        and isinstance(end, int)
-                                        and 0 <= start < end <= len(value)
-                                    )
-                                    self.citations.append(
-                                        Citation(
-                                            url=annotation["url"],
-                                            title=annotation.get("title") or "Source",
-                                            start_index=start + offset if valid_span else None,
-                                            end_index=end + offset if valid_span else None,
-                                        ).model_dump()
-                                    )
-                                    self.add_source(
-                                        annotation.get("title") or "Source", annotation["url"]
-                                    )
-                await self.checkpoint("Verifying sources")
-                if self.tool_calls > settings.RESEARCH_MAX_TOOL_CALLS:
-                    raise ResearchFailure(
-                        "The tool-call budget was reached. Retry with a narrower question."
-                    )
-                if data.get("status") != "completed":
-                    raise ResearchFailure(
-                        "The provider returned an incomplete answer. Saved evidence is available; retry with a narrower question."
-                    )
-                inputs.extend(outputs)
-                if calls:
-                    for call in calls:
-                        result = await self.execute_tool(call)
-                        inputs.append(
-                            {
-                                "type": "function_call_output",
-                                "call_id": call["call_id"],
-                                "output": result,
-                            }
-                        )
-                    continue
-                report = "\n\n".join(text_parts)
-                if not report.strip():
-                    raise ResearchFailure("The provider returned no report. Please retry.")
-                if not self.evidence:
-                    # Clarifying questions can be unsourced; do not present them as verified research.
-                    report = "No external evidence was retrieved for this response.\n\n" + report
-                    for citation in self.citations:
-                        if citation["start_index"] is not None:
-                            citation["start_index"] += len(
-                                "No external evidence was retrieved for this response.\n\n"
-                            )
-                            citation["end_index"] += len(
-                                "No external evidence was retrieved for this response.\n\n"
-                            )
-                return report
-        raise ResearchFailure(
-            "The research turn limit was reached. Saved evidence is available; try a narrower question."
-        )
+        """Answer one research turn; provider agents implement this (see langchain_agent.py)."""
+        raise NotImplementedError

@@ -110,7 +110,9 @@ def chat_model(
         return ChatOpenAI(
             model=model,
             api_key=SecretStr(require_key(settings.OPENAI_API_KEY, "OpenAI")),
-            max_completion_tokens=max_tokens,
+            # Not `max_tokens`: LangChain renames that to `max_output_tokens` after merging
+            # per-call settings, so a per-call cap could never lower it.
+            model_kwargs={"max_output_tokens": max_tokens},
             max_retries=0,
             timeout=timeout or 90,
             use_responses_api=True,

@@ -3,7 +3,6 @@
 from typing import ClassVar
 from unittest.mock import MagicMock
 
-import httpx
 import pytest
 from langsmith import Client, traceable, tracing_context
 from langsmith.run_trees import RunTree
@@ -11,7 +10,7 @@ from langsmith.run_trees import RunTree
 from core.config import settings
 from models.research import Citation, MarketSnapshot
 from service.research import orchestrator as module
-from service.research.agent import ProviderUnavailable, ResearchAgent, ResearchFailure, http_failure
+from service.research.agent import ProviderUnavailable, ResearchAgent, ResearchFailure
 from service.research.orchestrator import (
     FailoverResearchAgent,
     ResearchOrchestrator,
@@ -268,28 +267,6 @@ async def test_all_models_unavailable(setup):
     OUT_OF_CREDIT.update({"qwen3:8b", "gpt-5-mini", "claude-sonnet-5-5"})
     with pytest.raises(ResearchFailure, match="Every configured research model is unavailable"):
         await orchestrator.run("AAPL price?", [])
-
-
-@pytest.mark.parametrize(
-    ("status", "body", "unavailable", "cooldown"),
-    [
-        (400, {"error": {"message": "Your credit balance is too low"}}, True, 1800),
-        (429, {"error": {"code": "insufficient_quota"}}, True, 1800),
-        (429, {"error": "rate limited"}, True, 60),
-        (401, {"error": "bad key"}, True, 1800),
-        (529, {"error": "overloaded"}, True, 60),
-        (400, {"error": "SECRET bad schema"}, False, None),
-    ],
-)
-def test_http_failure_classification(status, body, unavailable, cooldown):
-    request = httpx.Request("POST", "https://api.example.com")
-    error = httpx.HTTPStatusError(
-        "x", request=request, response=httpx.Response(status, json=body, request=request)
-    )
-    failure = http_failure(error, "Provider")
-    assert isinstance(failure, ProviderUnavailable) is unavailable
-    assert getattr(failure, "cooldown", None) == cooldown
-    assert "SECRET" not in str(failure)
 
 
 async def test_explicit_provider_runs_alone_when_healthy(setup):

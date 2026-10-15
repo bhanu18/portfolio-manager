@@ -2,8 +2,9 @@
 
 Status (2026-10-15): **built**, pending verification against real models. Anthropic and
 local run on LangChain, Auto is a LangGraph graph, and the old Anthropic/local httpx adapters
-are deleted. OpenAI stays on its httpx adapter until a key exists. Not yet run against real
-models: the paid baseline/parity evals, the recorded Anthropic fixture, and Ollama.
+are deleted. OpenAI moved to LangChain as well (see the last section), so no httpx provider
+loops remain. Not yet run against real models: the paid baseline and parity evals, the recorded
+fixtures, Ollama, and OpenAI (no key yet).
 
 Current Auto graph (`ResearchOrchestrator.graph()`; dotted = conditional):
 
@@ -579,3 +580,36 @@ tests. `agent.py` keeps the OpenAI loop.
 2. `python -m evals.record_fixture`.
 3. A UI smoke test: steps panel, sources, `[Source N]` highlights.
 4. Once Ollama is running: `routing` and `full --provider local`.
+
+
+## OpenAI on LangChain (built 2026-10-15, on request)
+
+`LangChainOpenAIAgent` uses the Responses API through `ChatOpenAI(use_responses_api=True, store=False)`.
+The old httpx loop, `execute_tool`/`run_tool` and `http_failure` are gone; `ResearchAgent.run`
+is now abstract.
+
+**What the probes found:**
+- Per-call `max_tokens` is **ignored**: LangChain renames a model-level `max_tokens` or
+  `max_completion_tokens` to `max_output_tokens` *after* merging per-call settings.
+  - Fix: the default goes in `model_kwargs={"max_output_tokens": n}`, and each call sends
+    `max_output_tokens` (plus `max_tool_calls`).
+  - A test checks that the cap drops from 4000 to 700 once the budget runs low.
+- Web-search results come back as a `server_tool_result` whose `output` is `{"sources": [...]}`
+  (the middleware used to treat that as a failed search). Source titles may be missing, so the
+  URL is used.
+- A refusal is a `non_standard` block with `value.type == "refusal"`. An unfinished response
+  shows as `response_metadata["status"] != "completed"`.
+- `url_citation` annotations become `citation` blocks with spans relative to their text block.
+  `citation_markers = False` keeps the spans (offset across blocks) instead of adding
+  `[Source N]` markers.
+- The system prompt is sent as the first input message, not as `instructions`.
+- Encrypted reasoning round-trips with `store=False`.
+
+**Test gotcha found here:** mocked responses must have unique ids. LangGraph's message reducer
+merges messages by id, so a reused id makes the final answer replace the tool-call turn. The
+Anthropic mock had the same flaw; both are fixed.
+
+**To verify once an OpenAI key exists:**
+- `python -m evals.record_fixture openai`, which enables `test_recorded_openai_responses_replay`.
+- `full --market offline --provider openai`. There is no pre-LangChain OpenAI baseline in this
+  environment. If wanted, run the same command on `ee3a64b`.

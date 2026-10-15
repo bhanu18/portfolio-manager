@@ -1,10 +1,9 @@
 """Research errors and the one table that maps provider failures to them.
 
-Shared by the httpx adapters (`http_failure`) and LangChain models (`provider_failure`), so
-failover and cooldowns behave the same whichever client made the call.
+`provider_failure` maps OpenAI/Anthropic SDK errors (as raised through LangChain) and
+`local_failure` maps local-server errors, so failover and cooldowns behave the same for every
+provider.
 """
-
-import httpx
 
 
 class ResearchFailure(Exception):
@@ -49,14 +48,6 @@ def classify_failure(
     return ResearchFailure(
         rejected or f"{name} rejected the request. Check model configuration and retry."
     )
-
-
-def http_failure(error: httpx.HTTPError, name: str, rejected: str | None = None) -> ResearchFailure:
-    """Map a provider HTTP error to a safe message, flagging errors worth failing over."""
-    if not isinstance(error, httpx.HTTPStatusError):
-        return classify_failure(None, "", name, rejected)
-    body = error.response.text[:2000].lower()
-    return classify_failure(error.response.status_code, body, name, rejected)
 
 
 def provider_failure(error: Exception, name: str, rejected: str | None = None) -> ResearchFailure:

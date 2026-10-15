@@ -1,7 +1,6 @@
-"""One failure table for httpx adapters and the OpenAI/Anthropic SDKs (used via LangChain)."""
+"""One failure table for the OpenAI/Anthropic SDKs (raised through LangChain)."""
 
 import anthropic
-import httpx
 import httpx2  # the SDKs' HTTP client; their exceptions need httpx2 objects
 import openai
 import pytest
@@ -9,7 +8,6 @@ import pytest
 from service.research.errors import (
     ProviderUnavailable,
     ResearchFailure,
-    http_failure,
     provider_failure,
 )
 
@@ -25,12 +23,6 @@ CASES = [
 ]
 
 
-def httpx_error(status, body):
-    request = httpx.Request("POST", "https://api.example.com")
-    response = httpx.Response(status, json=body, request=request)
-    return http_failure(httpx.HTTPStatusError("x", request=request, response=response), "P")
-
-
 def sdk_error(module, status, body):
     request = httpx2.Request("POST", "https://api.example.com")
     response = httpx2.Response(status, json=body, request=request)
@@ -39,7 +31,6 @@ def sdk_error(module, status, body):
 
 
 SOURCES = {
-    "httpx": httpx_error,
     "openai": lambda status, body: sdk_error(openai, status, body),
     "anthropic": lambda status, body: sdk_error(anthropic, status, body),
 }
@@ -61,7 +52,6 @@ def test_connection_errors_and_timeouts_are_outages(module):
     for error in (module.APIConnectionError(request=request), module.APITimeoutError(request)):
         failure = provider_failure(error, "P")
         assert isinstance(failure, ProviderUnavailable) and failure.cooldown == 60
-    assert http_failure(httpx.ConnectError("down"), "P").cooldown == 60
 
 
 def test_unrelated_errors_are_not_disguised_as_outages():

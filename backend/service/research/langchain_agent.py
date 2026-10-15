@@ -87,9 +87,10 @@ class BudgetMiddleware(AgentMiddleware):
         agent.model_turns += 1
         await agent.checkpoint(agent.drafting_stage)
         cap = min(4000, remaining_output)
+        settings_for_call = agent.call_settings(cap, remaining_tools if tools else None)
         response = await handler(
             request.override(
-                tools=tools, model_settings={**request.model_settings, **agent.call_settings(cap)}
+                tools=tools, model_settings={**request.model_settings, **settings_for_call}
             )
         )
         message = next(m for m in reversed(response.result) if isinstance(m, AIMessage))
@@ -110,13 +111,16 @@ class BudgetMiddleware(AgentMiddleware):
                     self.seen_calls.add(call_id)
                     agent.tool_calls += 1
             elif kind == "server_tool_result":
+                # Anthropic: a list of results. OpenAI: {"sources": [...]}, titles optional.
                 output = block.get("output")
-                if block.get("status") == "error" or not isinstance(output, list):
+                results = output.get("sources") if isinstance(output, dict) else output
+                if block.get("status") == "error" or not isinstance(results, list):
                     search_failed = True
                     continue
-                for result in output:
+                for result in results:
                     if isinstance(result, dict):
-                        agent.add_source(result.get("title") or "Web source", result.get("url", ""))
+                        url = str(result.get("url", ""))
+                        agent.add_source(str(result.get("title") or url or "Web source"), url)
         await agent.checkpoint("Verifying sources")
         if agent.tool_calls > settings.RESEARCH_MAX_TOOL_CALLS:
             raise ResearchFailure(
@@ -183,6 +187,9 @@ class LangChainResearchAgent(ResearchAgent):
     label: ClassVar[str]
     rejected: ClassVar[str | None] = None
     drafting_stage: ClassVar[str] = "Searching sources and drafting analysis"
+    # Anthropic citations have no character spans, so a ` [Source N]` marker is appended and
+    # cited; OpenAI citations point at spans of the text itself.
+    citation_markers: ClassVar[bool] = True
 
     def __init__(
         self, progress: Callable[..., Awaitable[None]], *, model: str | None = None, **options: Any
@@ -194,8 +201,8 @@ class LangChainResearchAgent(ResearchAgent):
     def default_model(cls) -> str:
         raise NotImplementedError
 
-    def call_settings(self, max_tokens: int) -> dict[str, Any]:
-        """Per-call model settings (passed to `bind`)."""
+    def call_settings(self, max_tokens: int, tool_budget: int | None) -> dict[str, Any]:
+        """Per-call model settings (passed to `bind`); `tool_budget` is None when no tools."""
         return {"max_tokens": max_tokens}
 
     def check_response(self, message: AIMessage) -> None:
@@ -278,7 +285,9 @@ class LangChainResearchAgent(ResearchAgent):
                     continue
                 if report:
                     report += "\n\n"
-                report += self.clean(str(block.get("text", "")))
+                offset = len(report)
+                text = self.clean(str(block.get("text", "")))
+                report += text
                 annotations: Any = block.get("annotations") or []
                 for annotation in annotations:
                     url = str(annotation.get("url", ""))
@@ -286,12 +295,23 @@ class LangChainResearchAgent(ResearchAgent):
                         continue
                     title = str(annotation.get("title") or "Web source")
                     self.add_source(title, url)
-                    report += " "
-                    start = len(report)
-                    report += f"[Source {len(citations) + 1}]"
+                    if self.citation_markers:
+                        report += " "
+                        start: int | None = len(report)
+                        report += f"[Source {len(citations) + 1}]"
+                        end: int | None = len(report)
+                    else:
+                        first, last = annotation.get("start_index"), annotation.get("end_index")
+                        valid = (
+                            isinstance(first, int)
+                            and isinstance(last, int)
+                            and 0 <= first < last <= len(text)
+                        )
+                        start = offset + first if valid else None
+                        end = offset + last if valid else None
                     citations.append(
                         Citation(
-                            url=url, title=title, start_index=start, end_index=len(report)
+                            url=url, title=title, start_index=start, end_index=end
                         ).model_dump()
                     )
         if not report.strip():
@@ -299,8 +319,9 @@ class LangChainResearchAgent(ResearchAgent):
         if not self.evidence:
             report = NO_EVIDENCE + report
             for citation in citations:
-                citation["start_index"] += len(NO_EVIDENCE)
-                citation["end_index"] += len(NO_EVIDENCE)
+                if citation["start_index"] is not None:
+                    citation["start_index"] += len(NO_EVIDENCE)
+                    citation["end_index"] += len(NO_EVIDENCE)
         self.citations = citations
         return report
 
@@ -313,6 +334,46 @@ class LangChainAnthropicAgent(LangChainResearchAgent):
     @classmethod
     def default_model(cls) -> str:
         return settings.ANTHROPIC_RESEARCH_MODEL
+
+
+class LangChainOpenAIAgent(LangChainResearchAgent):
+    """OpenAI Responses API (stateless: `store=False`, encrypted reasoning round-trips)."""
+
+    provider = "openai"
+    label = "OpenAI"
+    citation_markers = False
+
+    @classmethod
+    def default_model(cls) -> str:
+        return settings.RESEARCH_MODEL
+
+    def call_settings(self, max_tokens: int, tool_budget: int | None) -> dict[str, Any]:
+        # Responses-API names; `max_tool_calls` also caps hosted web searches.
+        call: dict[str, Any] = {"max_output_tokens": max_tokens}
+        if tool_budget is not None:
+            call["max_tool_calls"] = tool_budget
+        return call
+
+    def check_response(self, message: AIMessage) -> None:
+        values: list[Any] = [
+            block.get("value")
+            for block in message.content_blocks
+            if block.get("type") == "non_standard"
+        ]
+        if any(isinstance(value, dict) and value.get("type") == "refusal" for value in values):
+            raise ResearchFailure(
+                "The research provider could not answer this request. Rephrase the question."
+            )
+        if message.response_metadata.get("status") != "completed":
+            raise ResearchFailure(
+                "The provider returned an incomplete answer. Saved evidence is available; retry with a narrower question."
+            )
+
+    def finished(self, message: AIMessage) -> bool:
+        return message.response_metadata.get("status") == "completed"
+
+    def empty_report(self) -> ResearchFailure:
+        return ResearchFailure("The provider returned no report. Please retry.")
 
 
 # Ollama-style servers return reasoning separately and LangChain drops it, so an empty or cut-off
@@ -337,7 +398,7 @@ class LangChainLocalAgent(LangChainResearchAgent):
     def instructions(self) -> str:
         return f"{super().instructions()}\n\n{NO_WEB}"
 
-    def call_settings(self, max_tokens: int) -> dict[str, Any]:
+    def call_settings(self, max_tokens: int, tool_budget: int | None) -> dict[str, Any]:
         return {"extra_body": local_body(max_tokens)}
 
     def check_response(self, message: AIMessage) -> None:

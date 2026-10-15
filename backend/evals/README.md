@@ -35,8 +35,9 @@ rates every run, so a score change comes from the models or the orchestration, n
     from a market-data value; skipped for web answers), `citations_valid`, `total_tokens`.
   - `judge.py`: optional LLM judge on a local model. A small judge is noisy; read it as a trend.
 - `run_research.py`: CLI; `fixtures.py`: offline market data.
-- `record_fixture.py`: records one real Anthropic run (raw API responses, encrypted fields
-  redacted) to `tests/fixtures/langchain/anthropic_web.json` for the replay test. Costs a few
+- `record_fixture.py`: `python -m evals.record_fixture anthropic|openai "question"` records one real
+  run (raw API responses, encrypted fields redacted) to
+  `tests/fixtures/langchain/<provider>_web.json` for that provider's replay test. Costs a few
   cents; review the file before committing.
 
 ## LangSmith

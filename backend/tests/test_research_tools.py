@@ -56,42 +56,43 @@ def test_allowed_tools_narrow_the_set(make_agent):
     assert make_tools(make_agent(allowed_tools={"web_search"})) == []
 
 
-async def test_tool_call_matches_execute_tool(make_agent, monkeypatch):
+async def test_tool_call_records_evidence_and_reports_progress(make_agent, monkeypatch):
     async def fetch(symbol):
         return snapshot(symbol)
 
     monkeypatch.setattr(module, "stock_snapshot", fetch)
-    via_langchain, via_httpx = make_agent(), make_agent()
-    (stock, *_) = make_tools(via_langchain)
-    result = await stock.ainvoke({"symbol": "AAPL"})
-    expected = await via_httpx.execute_tool(
-        {"name": "stock_snapshot", "arguments": json.dumps({"symbol": "AAPL"})}
-    )
-    assert result == expected
-    assert via_langchain.evidence == via_httpx.evidence
-    assert (
-        via_langchain.events
-        == via_httpx.events
-        == [
-            "Reading stock and ETF data",
-            "Checking market evidence",
-        ]
-    )
+    agent = make_agent()
+    (stock, *_) = make_tools(agent)
+    result = json.loads(await stock.ainvoke({"symbol": "AAPL"}))
+    assert (result["symbol"], result["values"]["price"]) == ("AAPL", 100)
+    assert agent.evidence[0]["url"] == "https://example.com/AAPL"
+    assert agent.events == ["Reading stock and ETF data", "Checking market evidence"]
 
 
-async def test_upstream_failures_return_the_same_safe_json(make_agent, monkeypatch):
+async def test_upstream_failures_return_safe_json(make_agent, monkeypatch):
     async def broken(symbol):
         raise RuntimeError("secret upstream payload")
 
     monkeypatch.setattr(module, "investment_snapshot", broken)
+    monkeypatch.setattr(module, "stock_snapshot", broken)
     agent = make_agent()
-    tool = next(t for t in make_tools(agent) if t.name == "investment_analysis")
-    result = await tool.ainvoke({"symbol": "AAPL"})
-    assert "secret" not in result
-    assert result == await make_agent().execute_tool(
-        {"name": "investment_analysis", "arguments": json.dumps({"symbol": "AAPL"})}
-    )
+    tools = {t.name: t for t in make_tools(agent)}
+    analysis = await tools["investment_analysis"].ainvoke({"symbol": "AAPL"})
+    stock = await tools["stock_snapshot"].ainvoke({"symbol": "AAPL"})
+    assert "secret" not in analysis + stock
+    assert json.loads(stock) == {"error": "Market provider failed. This data is unavailable."}
     assert agent.evidence == []
+
+
+async def test_market_tool_rejects_unknown_tools_and_arguments(make_agent):
+    agent = make_agent()
+    unsupported = {"error": "Unsupported read-only tool or arguments"}
+    assert json.loads(await agent.market_tool("execute_shell", {"command": "env"})) == unsupported
+    assert json.loads(await agent.market_tool("stock_snapshot", {"ticker": "A"})) == unsupported
+    restricted = make_agent(allowed_tools={"treasury_snapshot"})
+    assert (
+        json.loads(await restricted.market_tool("stock_snapshot", {"symbol": "A"})) == unsupported
+    )
 
 
 def test_web_search_per_provider():

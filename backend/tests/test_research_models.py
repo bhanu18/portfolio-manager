@@ -23,7 +23,13 @@ def test_failover_owns_retries_and_blocks_are_standard(provider):
     assert model.max_retries == 0
     assert model.output_version == "v1"
     # Local servers read `max_tokens` from the body (see test_local_model_body).
-    limit = model.extra_body["max_tokens"] if provider == "local" else model.max_tokens
+    limits = {
+        "local": lambda: model.extra_body["max_tokens"],
+        # Set via model_kwargs so a per-call max_output_tokens can lower it.
+        "openai": lambda: model.model_kwargs["max_output_tokens"],
+        "anthropic": lambda: model.max_tokens,
+    }
+    limit = limits[provider]()
     assert limit == 1234
 
 

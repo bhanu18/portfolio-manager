@@ -23,6 +23,7 @@ from service.research.investment import investment_snapshot
 from service.research.langchain_agent import (
     LangChainAnthropicAgent,
     LangChainLocalAgent,
+    LangChainOpenAIAgent,
     LangChainResearchAgent,
 )
 from service.research.local_agent import local_json
@@ -30,7 +31,7 @@ from service.research.providers import stock_snapshot, treasury_snapshot
 from service.research.tracing import annotate, usage_metadata
 
 AGENTS: dict[str, type[ResearchAgent]] = {
-    "openai": ResearchAgent,
+    "openai": LangChainOpenAIAgent,
     "anthropic": LangChainAnthropicAgent,
     "local": LangChainLocalAgent,
 }

@@ -9,7 +9,7 @@ from sqlalchemy import select
 from core.config import settings
 from db.orm_models import User, UserRole
 from db.research_models import ResearchDailyUsage, ResearchModelUsage, ResearchRun
-from service.research.agent import ResearchAgent
+from service.research.langchain_agent import LangChainOpenAIAgent
 
 
 @pytest.fixture
@@ -213,7 +213,7 @@ async def test_worker_completion_persists_report_and_followups(
         await self.checkpoint("Reading issuer sources")
         return "## Summary\nA report with [issuer evidence](https://www.apple.com)."
 
-    monkeypatch.setattr(ResearchAgent, "run", fake_agent)
+    monkeypatch.setattr(LangChainOpenAIAgent, "run", fake_agent)
     await worker_db.process_run(run_id, "worker-test")
     detail = (await client.get(f"/research/sessions/{session}")).json()
     assert detail["runs"][0]["status"] == "completed"
@@ -275,7 +275,7 @@ async def test_worker_failure_keeps_evidence(
         await self.checkpoint("Reading filings")
         raise ResearchFailure("Provider temporarily unavailable")
 
-    monkeypatch.setattr(ResearchAgent, "run", fail_agent)
+    monkeypatch.setattr(LangChainOpenAIAgent, "run", fail_agent)
     await worker_db.process_run(run_id, "worker-test")
     response = (await client.get(f"/research/runs/{run_id}")).json()
     assert response["status"] == "failed"
@@ -516,7 +516,7 @@ async def test_model_usage_is_stored_per_model_including_failovers(
         return "Report"
 
     monkeypatch.setattr(LangChainAnthropicAgent, "run", out_of_credit)
-    monkeypatch.setattr(ResearchAgent, "run", answer)
+    monkeypatch.setattr(LangChainOpenAIAgent, "run", answer)
     session = await create(client)
     for _ in range(2):
         response = await client.post(

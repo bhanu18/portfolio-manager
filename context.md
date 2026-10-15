@@ -118,6 +118,9 @@ Navigation, price freshness, and trade-entry components include `ModernistNav`, 
 | `backend/service/research/local_agent.py` | OpenAI-compatible Chat Completions adapter for local models (Ollama default) and the JSON-mode classifier call |
 | `backend/service/research/usage.py` | Per-model token totals (`research_model_usage`) and the admin usage query |
 | `backend/service/research/orchestrator.py` | Auto mode: classify → deterministic data → optional web step → tier-routed writer, per-step usage |
+| `backend/service/research/errors.py` | Research exceptions and the shared provider-failure → cooldown table (httpx and SDK errors) |
+| `backend/service/research/models.py` | LangChain chat-model factory per provider (no retries, v1 content blocks); not wired in yet |
+| `backend/service/research/tools.py` | Market tools as LangChain `@tool`s over `ResearchAgent.market_tool`, plus native web-search tool dicts; not wired in yet |
 | `backend/service/research/tracing.py` | LangSmith tracing setup (off by default), flush, run annotations |
 | `backend/evals/` | Research evals: labelled dataset, evaluators, offline market fixtures, LangSmith runner (see its README) |
 | `backend/service/research/prompt.md` | **Single shared editable system prompt for both providers** |

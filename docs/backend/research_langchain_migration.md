@@ -226,6 +226,14 @@ did before.
 
 ## PR 1 in detail: building blocks only, no behaviour change
 
+**Status: built 2026-10-15.** Differences from the plan below:
+- `thinking()` stays in `local_agent.py`, and `models.py` imports it. Moving it would load
+  LangChain through the worker.
+- `chat_model` raises `ProviderUnavailable` (1800 s) when a cloud key is missing, because the
+  OpenAI client refuses to build without one.
+- Local models also use `output_version="v1"`.
+- The guard test also covers `main` (the API) and `langgraph`.
+
 Nothing in the running app imports the new modules, so the worker, API and evals behave
 exactly as before. Only new unit tests exercise them.
 

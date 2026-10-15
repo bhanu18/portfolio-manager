@@ -11,6 +11,12 @@ from langsmith import traceable
 
 from core.config import settings
 from models.research import Citation, Evidence, MarketSnapshot
+from service.research.errors import (  # noqa: F401  (re-exported for existing imports)
+    CREDIT_HINTS,
+    ProviderUnavailable,
+    ResearchFailure,
+    http_failure,
+)
 from service.research.investment import investment_snapshot
 from service.research.providers import safe_url, stock_snapshot, treasury_snapshot
 
@@ -55,50 +61,6 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
 ]
-
-
-class ResearchFailure(Exception):
-    """Safe, actionable error that may be shown to a user."""
-
-
-class ProviderUnavailable(ResearchFailure):
-    """The provider cannot serve any request right now (credit, key, rate limit, outage).
-
-    Unlike other failures this says nothing about the question, so Auto fails over to
-    another model and skips this provider for `cooldown` seconds.
-    """
-
-    def __init__(self, message: str, *, cooldown: float):
-        super().__init__(message)
-        self.cooldown = cooldown
-
-
-# Matched against the upstream error body, which is never shown to users. Anthropic reports
-# an exhausted balance as a 400 and OpenAI as a 429 `insufficient_quota`.
-CREDIT_HINTS = ("credit balance", "billing", "quota", "payment", "insufficient")
-
-
-def http_failure(error: httpx.HTTPError, name: str, rejected: str | None = None) -> ResearchFailure:
-    """Map a provider HTTP error to a safe message, flagging errors worth failing over."""
-    if not isinstance(error, httpx.HTTPStatusError):
-        return ProviderUnavailable(f"{name} could not be reached. Please retry later.", cooldown=60)
-    status = error.response.status_code
-    body = error.response.text[:2000].lower()
-    if status == 402 or any(hint in body for hint in CREDIT_HINTS):
-        return ProviderUnavailable(
-            f"{name}'s credit or billing limit was reached. Check API billing.", cooldown=1800
-        )
-    if status in (401, 403):
-        return ProviderUnavailable(
-            f"The {name} API key or model access needs attention on the server.", cooldown=1800
-        )
-    if status == 429:
-        return ProviderUnavailable(f"{name}'s rate limit was reached. Retry later.", cooldown=60)
-    if status >= 500:
-        return ProviderUnavailable(f"{name} is temporarily unavailable. Retry later.", cooldown=60)
-    return ResearchFailure(
-        rejected or f"{name} rejected the request. Check model configuration and retry."
-    )
 
 
 class ResearchAgent:
@@ -182,7 +144,19 @@ class ResearchAgent:
         return result
 
     async def run_tool(self, item: dict[str, Any]) -> str:
+        """Decode a provider's function call, then run it as a market tool."""
         name = item.get("name")
+        try:
+            args = json.loads(item.get("arguments", "{}"))
+        except (ValueError, TypeError):
+            args = None  # reported by market_tool as an argument error
+        return await self.market_tool(name if isinstance(name, str) else "", args)
+
+    async def market_tool(self, name: str, args: Any) -> str:
+        """Run one read-only market tool. Shared by the httpx loops and LangChain tools.
+
+        Always returns model-context JSON; failures become safe error messages, never raise.
+        """
         await self.checkpoint(
             "Reading Treasury rates"
             if name == "treasury_snapshot"
@@ -190,10 +164,9 @@ class ResearchAgent:
             if name == "investment_analysis"
             else "Reading stock and ETF data"
         )
-        if not isinstance(name, str) or not self.tool_allowed(name):
+        if not name or not self.tool_allowed(name):
             return json.dumps({"error": "Unsupported read-only tool or arguments"})
         try:
-            args = json.loads(item.get("arguments", "{}"))
             if not isinstance(args, dict):
                 raise ValueError("Invalid tool arguments")
             if (

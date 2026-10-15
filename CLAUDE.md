@@ -50,6 +50,14 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 - Never commit `.env` files (root `.gitignore` covers backend + frontend).
 - `venv/` and `node_modules/` are not copied — recreate after cloning.
 
+## Cloud sessions (Claude Code on the web)
+- `.claude/settings.json` runs `scripts/cloud_setup.sh` on SessionStart (`startup|resume`, 600s timeout). The script exits immediately unless `CLAUDE_CODE_REMOTE=true`, so it no-ops locally.
+- Cloud VMs have PostgreSQL but **no MySQL** until the hook starts MariaDB (`service mariadb start`, fallback `mysqld_safe`). It creates `portfolio` + `portfolio_test` and a throwaway `ci`/`ci` user (same as CI), installs deps, and runs `alembic upgrade head`.
+- No `backend/.env` in the cloud: the hook exports `DATABASE_URL`, `SYNC_DATABASE_URL`, `TEST_DATABASE_URL`, `SECRET_KEY` via `$CLAUDE_ENV_FILE` (skipped if a `.env` exists). Use `venv/bin/<tool>` in `backend/`.
+- Python must be **3.12** (`uv venv venv --python 3.12`); the VM default is 3.13 and 3.14 breaks pydantic_core and watchfiles wheels.
+- yfinance needs the Yahoo domains (`*.finance.yahoo.com`, `fc.yahoo.com`) on the environment's network allowlist. A 429 from Yahoo is their rate limit, not the proxy. Tests don't hit Yahoo.
+- Verified 2026-10-15 on MariaDB: ruff, ruff format, mypy, pytest (185 passed); frontend lint (2 known warnings), format:check, typecheck, build.
+
 ## Direction (decided 2026-09-16)
 - Goal: **portfolio showcase** (public repo for job hunting) — polish, CI and a clean README matter.
 - Hosting: undecided, **local first**. DB: MySQL for now, Postgres possible once hosting is chosen — avoid MySQL-only SQL.

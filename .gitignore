@@ -203,5 +203,6 @@ frontend/vite.config.d.ts
 # ---- OS / editor ----
 .DS_Store
 
-# Claude Code agent scratch space (includes git worktrees).
-.claude/
+# Claude Code agent scratch space (includes git worktrees); shared settings are tracked.
+.claude/*
+!.claude/settings.json

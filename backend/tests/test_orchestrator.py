@@ -372,3 +372,23 @@ async def test_auto_run_is_traced_as_one_tree(setup):
         "web: openai",
         ["web_search"],
     )
+
+
+async def test_langchain_steps_are_chain_spans(setup, monkeypatch):
+    """LangChain traces its own LLM runs, so its steps must not be LLM runs too."""
+    from service.research.langchain_agent import LangChainResearchAgent
+
+    class FakeLangChainAgent(FakeAgent, LangChainResearchAgent):
+        provider, label = "anthropic", "Anthropic"
+
+    monkeypatch.setitem(module.AGENTS, "anthropic", FakeLangChainAgent)
+    orchestrator, _, _, _ = setup
+    roots: list[RunTree] = []
+    traced = traceable(name="research")(orchestrator.run)
+    with tracing_context(enabled=True, client=MagicMock(spec=Client)):
+        await traced("Backtest MSFT MA50/200", [], langsmith_extra={"on_end": roots.append})
+    (root,) = roots
+    writer = root.child_runs[-1]
+    assert (writer.name, writer.run_type) == ("writer: anthropic", "chain")
+    assert "usage_metadata" not in writer.outputs
+    assert writer.outputs["tokens"]["total_tokens"] == 110

@@ -345,6 +345,19 @@ behaviour change; nothing imports the new modules yet; Anthropic migration follo
 
 ## PR 2 in detail: Anthropic on LangChain
 
+**Status: built 2026-10-15** (pushed to PR #12's branch). Differences from the plan below:
+- Tests drive the real `ChatAnthropic` against a mocked HTTP transport, not a fake chat model.
+  That also covers request shape and the round trip of web-search results.
+- The `run_agent` span type depends on the provider: `chain` for LangChain providers, `llm` for
+  the httpx ones. OpenAI and local keep their token totals in LangSmith.
+- The report joins the text of every model message after the last tool round. Text written
+  before a `pause_turn` is part of the answer, as in the old adapter.
+- `record_fixture` captures raw API response bodies, not `AIMessage` dumps, so the replay goes
+  through the whole stack.
+- New: an autouse fixture in conftest clears provider cooldowns between tests.
+
+**Still needed:** the paid Anthropic baseline, `python -m evals.record_fixture`, and the parity run.
+
 **Goal:** `AGENTS["anthropic"]` runs on LangChain, and so does Auto whenever it routes to
 Anthropic. OpenAI and local stay on their httpx loops. Behaviour must match
 `anthropic_agent.py` exactly, including errors, budgets, progress stages, citation markers and

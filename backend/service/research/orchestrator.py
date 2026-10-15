@@ -17,16 +17,16 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from core.config import settings
 from service.research.agent import ProviderUnavailable, ResearchAgent, ResearchFailure
-from service.research.anthropic_agent import AnthropicResearchAgent
 from service.research.configuration import provider_enabled
 from service.research.investment import investment_snapshot
+from service.research.langchain_agent import LangChainAnthropicAgent, LangChainResearchAgent
 from service.research.local_agent import LocalResearchAgent, local_json
 from service.research.providers import stock_snapshot, treasury_snapshot
 from service.research.tracing import annotate, usage_metadata
 
 AGENTS: dict[str, type[ResearchAgent]] = {
     "openai": ResearchAgent,
-    "anthropic": AnthropicResearchAgent,
+    "anthropic": LangChainAnthropicAgent,
     "local": LocalResearchAgent,
 }
 READ_TOOLS = {"stock_snapshot", "investment_analysis", "treasury_snapshot"}
@@ -241,18 +241,22 @@ class ResearchOrchestrator(ResearchAgent):
     async def run_agent(
         self, role: str, target: Target, prompt: str, history: list[dict[str, str]], **options: Any
     ) -> tuple[str, ResearchAgent]:
-        """Run one model step, traced as an LLM run so LangSmith rolls up tokens and cost."""
+        """Run one model step in its own span, typed so LangSmith counts tokens exactly once:
+        LangChain agents trace their own LLM calls underneath (so the step is a chain); the
+        httpx adapters make raw calls (so the step itself is the LLM run)."""
+        llm_step = not issubclass(AGENTS[target.provider], LangChainResearchAgent)
+        tokens_key = "usage_metadata" if llm_step else "tokens"
 
         def outputs(result: tuple[str, ResearchAgent]) -> dict[str, Any]:
             report, agent = result
             return {
                 "report": report,
                 "citations": agent.citations,
-                "usage_metadata": usage_metadata(agent.input_tokens, agent.output_tokens),
+                tokens_key: usage_metadata(agent.input_tokens, agent.output_tokens),
             }
 
         traced = traceable(
-            run_type="llm",
+            run_type="llm" if llm_step else "chain",
             name=f"{role}: {target.provider}",
             metadata={
                 "ls_provider": target.provider,

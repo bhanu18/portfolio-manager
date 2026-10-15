@@ -1,9 +1,6 @@
 """LangChain market tools must behave exactly like the httpx adapters' tool execution."""
 
 import json
-import subprocess
-import sys
-from pathlib import Path
 
 import pytest
 
@@ -105,16 +102,3 @@ def test_web_search_per_provider():
         "max_uses": 3,
     }
     assert web_search_tool("local", 3) is None
-
-
-def test_running_app_does_not_load_langchain_yet():
-    """PR 1 adds building blocks only: the worker and API must not import LangChain."""
-    code = (
-        "import sys, main, service.research.worker; "
-        "print(any(m.startswith(('langchain', 'langgraph')) for m in sys.modules))"
-    )
-    backend = Path(__file__).resolve().parents[1]
-    result = subprocess.run(
-        [sys.executable, "-c", code], cwd=backend, capture_output=True, text=True, check=True
-    )
-    assert result.stdout.strip() == "False"

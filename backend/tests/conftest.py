@@ -119,3 +119,13 @@ async def client(
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def reset_provider_cooldowns() -> Generator[None, None, None]:
+    """Provider cooldowns are per-process state; never let one test's failure leak to another."""
+    from service.research.orchestrator import COOLDOWNS
+
+    COOLDOWNS.clear()
+    yield
+    COOLDOWNS.clear()

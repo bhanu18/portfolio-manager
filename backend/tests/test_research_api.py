@@ -421,7 +421,7 @@ async def test_anthropic_selection_and_configuration(client, research_user, monk
 async def test_worker_uses_saved_anthropic_model(
     client, db_session, research_user, worker_db, monkeypatch
 ):
-    from service.research.anthropic_agent import AnthropicResearchAgent
+    from service.research.langchain_agent import LangChainAnthropicAgent
     from service.research.queue import claim_run
 
     monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "fake-key")
@@ -439,7 +439,7 @@ async def test_worker_uses_saved_anthropic_model(
         assert self.model == "saved-model"
         return "Claude report"
 
-    monkeypatch.setattr(AnthropicResearchAgent, "run", fake_agent)
+    monkeypatch.setattr(LangChainAnthropicAgent, "run", fake_agent)
     await worker_db.process_run(run_id, "claude-worker")
     result = (await client.get(f"/research/runs/{run_id}")).json()
     assert result["status"] == "completed"
@@ -498,7 +498,7 @@ async def test_model_usage_is_stored_per_model_including_failovers(
     client, db_session, research_user, worker_db, monkeypatch
 ):
     from service.research.agent import ProviderUnavailable
-    from service.research.anthropic_agent import AnthropicResearchAgent
+    from service.research.langchain_agent import LangChainAnthropicAgent
     from service.research.orchestrator import COOLDOWNS
     from service.research.queue import claim_run
 
@@ -515,7 +515,7 @@ async def test_model_usage_is_stored_per_model_including_failovers(
         self.input_tokens, self.output_tokens = 100, 50
         return "Report"
 
-    monkeypatch.setattr(AnthropicResearchAgent, "run", out_of_credit)
+    monkeypatch.setattr(LangChainAnthropicAgent, "run", out_of_credit)
     monkeypatch.setattr(ResearchAgent, "run", answer)
     session = await create(client)
     for _ in range(2):

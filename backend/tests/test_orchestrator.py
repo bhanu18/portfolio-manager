@@ -353,21 +353,19 @@ async def test_auto_run_is_traced_as_one_tree(setup):
             langsmith_extra={"on_end": roots.append},
         )
     (root,) = roots
-    children = [(run.name, run.run_type) for run in root.child_runs]
-    assert children == [
-        ("classify", "chain"),
-        ("gather market data", "chain"),
-        ("web research", "chain"),
-        ("writer: anthropic", "llm"),
-    ]
-    writer = root.child_runs[-1]
+    (graph,) = root.child_runs
+    assert (graph.name, graph.run_type) == ("auto research", "chain")
+    nodes = {run.name: run for run in graph.child_runs}
+    assert set(nodes) == {"classify", "gather market data", "web research", "writer"}
+    (writer,) = nodes["writer"].child_runs
+    assert (writer.name, writer.run_type) == ("writer: anthropic", "llm")
     assert writer.extra["metadata"]["ls_model_name"] == "claude-sonnet-5-5"
     assert writer.outputs["usage_metadata"] == {
         "input_tokens": 100,
         "output_tokens": 10,
         "total_tokens": 110,
     }
-    (web_step,) = root.child_runs[2].child_runs
+    (web_step,) = nodes["web research"].child_runs
     assert (web_step.name, web_step.extra["metadata"]["allowed_tools"]) == (
         "web: openai",
         ["web_search"],
@@ -388,7 +386,36 @@ async def test_langchain_steps_are_chain_spans(setup, monkeypatch):
     with tracing_context(enabled=True, client=MagicMock(spec=Client)):
         await traced("Backtest MSFT MA50/200", [], langsmith_extra={"on_end": roots.append})
     (root,) = roots
-    writer = root.child_runs[-1]
+    writer_node = next(run for run in root.child_runs[0].child_runs if run.name == "writer")
+    (writer,) = writer_node.child_runs
     assert (writer.name, writer.run_type) == ("writer: anthropic", "chain")
     assert "usage_metadata" not in writer.outputs
     assert writer.outputs["tokens"]["total_tokens"] == 110
+
+
+async def test_data_and_web_run_in_parallel(setup):
+    """The market-data step and the web step overlap; the writer starts after both finish."""
+    import asyncio
+
+    orchestrator, _, _, _ = setup
+    order: list[str] = []
+    gather, web = orchestrator.gather, orchestrator.web
+
+    async def slow_gather(profile, prompt):
+        order.append("data start")
+        await asyncio.sleep(0.05)
+        order.append("data end")
+        return await gather(profile, prompt)
+
+    async def tracked_web(prompt, history):
+        order.append("web start")
+        notes = await web(prompt, history)
+        order.append("web end")
+        return notes
+
+    orchestrator.gather, orchestrator.web = slow_gather, tracked_web
+    report = await orchestrator.run("Backtest MSFT MA50/200 and latest earnings news", [])
+    assert report == "Report by claude-sonnet-5-5"
+    assert order.index("web start") < order.index("data end")  # overlapped
+    assert [s["role"] for s in orchestrator.steps][-1] == "writer"
+    assert "Earnings beat" in FakeAgent.runs[-1].extra_instructions

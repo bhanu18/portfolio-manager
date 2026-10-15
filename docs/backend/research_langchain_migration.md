@@ -1,6 +1,21 @@
 # Research: LangChain migration (Phase 3)
 
-Status: planned 2026-10-15, not started. Phase 4 (Auto as a LangGraph graph) comes after.
+Status (2026-10-15): **built**, pending verification against real models. Anthropic and
+local run on LangChain, Auto is a LangGraph graph, and the old Anthropic/local httpx adapters
+are deleted. OpenAI stays on its httpx adapter until a key exists. Not yet run against real
+models: the paid baseline/parity evals, the recorded Anthropic fixture, and Ollama.
+
+Current Auto graph (`ResearchOrchestrator.graph()`; dotted = conditional):
+
+```mermaid
+graph TD;
+  start([start]) --> classify;
+  classify -.-> data[gather market data];
+  classify -.-> web[web research];
+  data --> writer;
+  web --> writer;
+  writer --> done([end]);
+```
 
 **Goal:** replace the three hand-written provider loops (`agent.py`, `anthropic_agent.py`,
 `local_agent.py`) with LangChain chat models, `@tool` functions and `create_agent`. The
@@ -529,3 +544,38 @@ Also:
   the steps panel, the sources list and the `[Source N]` highlights.
 
 PR title: `feat(research): run Anthropic research on LangChain`.
+
+
+## PR 3 + PR 4 + Phase 4 (built 2026-10-15)
+
+**PR 3, local on LangChain** (`LangChainLocalAgent`). Provider differences moved into hooks on
+`LangChainResearchAgent`. Checked against the local server's real behaviour; three findings:
+- LangChain sends `max_completion_tokens`, which older OpenAI-compatible servers ignore.
+  `max_tokens` now goes in `extra_body`, per call.
+- LangChain rejects tool `arguments` sent as a JSON object, which some servers do. The
+  `StringifyToolArguments` transport re-encodes them.
+- LangChain drops Ollama's separate `reasoning` field. "Thinking ate the budget" and "ran out of
+  tokens" are now one message.
+
+`local_json` runs on ChatOpenAI. Its errors keep the old advice ("ollama pull <model>", server
+unreachable, timeout) through `errors.local_failure`.
+
+**PR 4, cleanup.** Deleted `anthropic_agent.py`, the local httpx loop, and their httpx-payload
+tests. `agent.py` keeps the OpenAI loop.
+
+**Phase 4, Auto on LangGraph.** `ResearchOrchestrator.run` builds the graph above:
+- `classify` fans out to `gather market data` and, when `needs_web`, `web research` in the same
+  superstep; `writer` runs after both.
+- The `write()` method holds the old writer and failover logic unchanged.
+- Node names keep the old LangSmith span names. The manual `@traceable` decorators on
+  `classify`/`gather`/`web` were removed because LangGraph traces the nodes.
+- `test_data_and_web_run_in_parallel` proves the overlap: a sequential variant fails only that
+  test.
+- `FailoverResearchAgent` stays plain code; a one-node graph would add nothing.
+
+**To verify on a machine with keys:**
+1. Anthropic baseline on `ee3a64b` vs the current head (`full --market offline`, providers
+   `anthropic` and `auto`).
+2. `python -m evals.record_fixture`.
+3. A UI smoke test: steps panel, sources, `[Source N]` highlights.
+4. Once Ollama is running: `routing` and `full --provider local`.

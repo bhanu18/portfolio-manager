@@ -9,6 +9,8 @@
 
 A multi-currency stock, ETF and crypto portfolio tracker. Record trades, share portfolios with a group,
 and see what your holdings are worth today in any currency — with FIFO cost basis and FX-adjusted returns.
+A built-in research desk answers market questions with cited sources, orchestrated with LangChain and
+LangGraph across OpenAI, Anthropic and local models, traced and evaluated with LangSmith.
 
 <!-- Screenshots: add images to docs/screenshots/ and uncomment
 ![Portfolio](docs/screenshots/portfolio.png)
@@ -27,35 +29,19 @@ and see what your holdings are worth today in any currency — with FIFO cost ba
 - **Valuation** — current value of any holding converted to a target currency
 - **Performance report** — FIFO cost basis, unrealized gain/loss, annualized return, local vs. FX gain,
   breakdowns by currency and asset type, benchmark comparison and alpha
+- **Research desk** — sourced analyst briefs on stocks, ETFs, Treasuries and money markets, with
+  moving-average backtests and follow-up questions; runs on OpenAI, Anthropic or a local model, or
+  **Auto**, which routes each step to the cheapest capable model ([details](#research-desk))
 - **Auth** — JWT (OAuth2 password flow), registration, password change and email-based reset,
   rate-limited sensitive endpoints
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    subgraph Browser
-        UI["React SPA<br/>Vite · TypeScript · React Query"]
-    end
-    subgraph API["FastAPI (async)"]
-        R["Routers<br/>auth · assets · trades · groups · reports · email"]
-        S["Services<br/>JWT/bcrypt · SMTP"]
-        D["SQLAlchemy 2 (async)"]
-    end
-    DB[("MySQL")]
-    YF["Yahoo Finance<br/>(prices, benchmark)"]
-    FX["FX rates"]
-
-    UI -- "REST + Bearer JWT" --> R
-    R --> S
-    R --> D --> DB
-    R --> YF
-    R --> FX
-```
-
 ```
 portfolio-manager/
 ├── backend/          FastAPI, SQLAlchemy (aiomysql), Alembic, pytest
+│   ├── service/research/   research worker: LangGraph pipeline, LangChain agents, tools
+│   └── evals/              research evals (LangSmith datasets and experiments)
 ├── frontend/         Vite, React 18, TypeScript, React Query, axios
 ├── docs/             feature specs (reports, permissions, scoring)
 └── .github/workflows CI for both apps
@@ -98,8 +84,11 @@ Everything below runs in GitHub Actions on every push and pull request.
 | Lint | `ruff check .` | `npm run lint` |
 | Format | `ruff format .` | `npm run format` |
 | Types | `mypy` | `npm run typecheck` |
-| Tests | `pytest` (needs `TEST_DATABASE_URL`) | — |
+| Tests | `pytest` (needs `TEST_DATABASE_URL`) | `npm test` |
 | Build | `docker build -t portfolio-api .` | `npm run build` |
+
+Research evals are run on demand, not in CI, because the full ones call paid models. See
+[Evaluation](#evaluation); `python -m evals.run_research routing --rules-only` is free.
 
 Pre-commit hooks run the linters and formatters before each commit:
 
@@ -127,6 +116,9 @@ Health check: `GET /health` (reports database connectivity).
 **Backend:** Python 3.12 · FastAPI · SQLAlchemy 2 (async) · Alembic · Pydantic v2 · MySQL · python-jose ·
 passlib/bcrypt · slowapi · yfinance · pandas · pytest · ruff · mypy
 
+**Research:** LangChain (`create_agent`, middleware) · LangGraph · LangSmith (tracing, datasets,
+experiments) · OpenAI Responses API · Anthropic Messages API · OpenAI-compatible local servers
+
 **Frontend:** React 18 · TypeScript · Vite · React Router · TanStack Query · axios · ESLint · Prettier
 
 ## Research desk
@@ -137,18 +129,68 @@ saved analyst brief, and ask follow-ups. Use **Research** on a holding to prefil
 ticker; portfolio balances are never sent to the agent. Sessions are private to their
 owner, including when that owner belongs to a shared portfolio group.
 
-The agent supports OpenAI Responses (default `gpt-5-mini`) and Anthropic Messages
-(default `claude-sonnet-5-5`) with cited web search,
+The agent supports OpenAI Responses (default `gpt-5-mini`), Anthropic Messages
+(default `claude-sonnet-5-5`) and local models over an OpenAI-compatible API
+(Ollama, LM Studio, vLLM, mlx_lm), with cited web search on the cloud providers,
 read-only Yahoo market snapshots, and the official US Treasury XML feeds. Reports
 retain inline citations, source URLs, observation dates, retrieval times, units, and
 provider warnings. Quotes may be delayed; individual bond pricing, bond accounting,
 trading, scheduled monitoring, and shared reports are not included.
 
+### How it works
+
+The API only queues a run; a separate worker process claims it and does the research.
+
+**Auto mode** is a LangGraph graph. A local model (or keyword rules, if none is configured)
+classifies the question; market data and, when needed, web research run **in parallel**; then the
+writer runs on the cheapest model tier that fits the task (clarify/lookup → local, news → cheap
+cloud, analysis → strong cloud):
+
+```mermaid
+graph TD;
+  start([question]) --> classify;
+  classify -.-> data["gather market data<br/>(no LLM)"];
+  classify -.-> web["web research<br/>(cheap tier)"];
+  data --> writer["writer<br/>(tier by task)"];
+  web --> writer;
+  writer --> report([cited report]);
+```
+
+**Each model step** is a LangChain `create_agent` loop over the provider's chat model, with the
+read-only market tools as LangChain tools and the provider's own web search. A custom
+`BudgetMiddleware` enforces the research rules:
+- token, context and tool-call budgets, with hosted web searches counted;
+- an output cap on each call;
+- progress updates the UI polls;
+- source collection;
+- safe answers for invalid tool calls.
+
+It also continues Anthropic's paused (`pause_turn`) responses. Provider differences live in small
+hooks: stop reasons, citation format, error advice and request settings. Code:
+`backend/service/research/` (`orchestrator.py`, `langchain_agent.py`, `models.py`, `tools.py`).
+
+**Failover.** Account-level errors (credit, bad key, rate limit, outage) move the step to the next
+configured model and put that provider in a short in-process cooldown. Question-level failures are
+not retried on another cloud model. This applies whether you pick a provider explicitly or use Auto.
+Retries are off in the SDKs, so a request is never silently billed twice.
+
+**Tracing.** Set `LANGSMITH_TRACING=true` and `LANGSMITH_API_KEY` to send one trace per run to
+LangSmith: the graph, each node, each model step and every LLM and tool call, with token counts.
+Tracing is off by default, because traces contain user questions. `LANGSMITH_HIDE_INPUTS` and
+`LANGSMITH_HIDE_OUTPUTS` redact them.
+
 ### Setup
 
 1. Apply migrations: `cd backend && alembic upgrade head`.
-2. Set `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` in `backend/.env`. Keys stay on the server. `RESEARCH_MODEL`
-   can select another Responses model supporting web search and function tools.
+2. Configure at least one model in `backend/.env`; keys stay on the server:
+   - `OPENAI_API_KEY` (`RESEARCH_MODEL` selects another Responses model with web search and
+     function tools);
+   - `ANTHROPIC_API_KEY` (`ANTHROPIC_RESEARCH_MODEL`);
+   - and/or a local model: `LOCAL_LLM_MODEL`, with `LOCAL_LLM_BASE_URL` defaulting to Ollama's
+     `http://localhost:11434/v1`. For example, `ollama pull qwen3:8b`; raise
+     `OLLAMA_CONTEXT_LENGTH` to at least 16384.
+
+   Auto's tiers are `RESEARCH_TIER_CHEAP` / `RESEARCH_TIER_STRONG` (`provider:model`).
 3. Start the API normally, then start a **separate process** from `backend/`:
 
    ```bash
@@ -178,35 +220,60 @@ by UTF-8 byte count before each model call; old conversation context is trimmed.
 Usage totals include reasoning tokens reported by the provider. Cancelled and failed
 starts count toward the daily limit, and deleting a session does not reset it.
 These are request/token limits, not an exact dollar spending cap; configure provider
-billing controls as appropriate. No provider retries happen automatically.
+billing controls as appropriate. SDK-level retries are disabled; only the failover described
+above moves a step to another model.
 
-Run `pytest tests/test_research_agent.py` for offline provider/agent checks and
-`pytest tests/test_research_api.py` with the disposable `TEST_DATABASE_URL` for API,
-queue, migration round-trip, and isolation checks. Run `npm run test:research` in
+Offline tests never call a paid API:
+- `tests/test_langchain_agent.py`, `test_openai_agent.py` and `test_local_agent.py` run the real
+  LangChain clients against mocked provider HTTP APIs: request shape, parsing, budgets,
+  citations, errors.
+- `test_orchestrator.py` covers routing, the graph (including that data and web overlap),
+  failover and trace shape.
+- `test_research_agent.py` covers market-data providers.
+- `test_research_api.py` covers the API, queue, migration round-trip and isolation; it needs the
+  disposable `TEST_DATABASE_URL`. Run `npm run test:research` in
 `frontend/` for citation, comparison-table, and HTML-safety rendering checks. CI never
 needs a paid provider key. For a live smoke test after
 setup, research Apple, compare SPY/VTI, compare Treasury bills with money-market funds,
 ask a follow-up, reload an active session, and verify its citations and observation dates.
 
+### Evaluation
+
+`backend/evals/` scores the research pipeline. Usage is in its
+[README](backend/evals/README.md).
+- **Dataset:** 54 labelled questions. They test routing (question type, web need, tickers,
+  Treasury topic) and report quality (every figure must match fetched market data; citation
+  spans must be valid).
+- **Running it:**
+  - `python -m evals.run_research routing --rules-only` is free.
+  - `full --market offline` runs real models on deterministic market data, so score changes come
+    from the models and orchestration, not the market.
+- **LangSmith:** with `LANGSMITH_API_KEY` set, the dataset syncs to LangSmith and each run is a
+  comparable experiment, tagged with git SHA and model tiers.
+- **What it found:** the evals uncovered router bugs (`P/E` and `T-bill` read as tickers,
+  company names missed). They're fixed, with held-out examples to check that the fixes
+  generalize.
+
 ### Research provider selection
 
-Choose OpenAI or Anthropic in the research composer, including for follow-up questions.
-Set `ANTHROPIC_API_KEY` to enable Claude and optionally change
-`ANTHROPIC_RESEARCH_MODEL=claude-sonnet-5-5`. `RESEARCH_MODEL` controls OpenAI.
-`RESEARCH_PROVIDER=openai` sets the default; if only one provider is configured it
-is selected automatically. Unconfigured providers are disabled in the selector.
+Choose Auto, OpenAI, Anthropic or Local in the research composer, including for follow-up
+questions. `RESEARCH_PROVIDER` sets the default (`openai`, `anthropic`, `local` or `auto`); if
+the preferred one isn't configured, the first configured provider is used. Unconfigured
+providers are disabled in the selector.
 
 Run `alembic upgrade head` from `backend` and restart both the API and research
 worker after configuration changes. Both processes need the selected provider's key.
 Each queued run saves its provider and model; configuration changes do not switch an
-existing run. Existing reports retain OpenAI as their provider. Provider errors never
-silently switch to another provider. Claude uses its basic web-search tool plus the
-same read-only stock and Treasury tools, with the same run limits and private storage.
+existing run. If the chosen provider is unavailable for account-level reasons, the run
+continues on the next configured model, and the steps panel under the report shows which
+model handled each step and its tokens. All providers share the same read-only stock and
+Treasury tools, run limits and private storage. Local models have no web search and say so
+when a question needs it.
 
 ### Investment decision research
 
-Stock/ETF research now includes a read-only `investment_analysis` tool, shared by
-OpenAI and Anthropic. It calculates SMA50/SMA200, 20-session MA changes, distance
+Stock/ETF research includes a read-only `investment_analysis` tool, shared by every
+provider. It calculates SMA50/SMA200, 20-session MA changes, distance
 from each average, and the latest crossover. Three fixed strategies are compared:
 buy-and-hold, price above SMA200, and SMA50 above SMA200. The report shows sampled
 price/equity/drawdown charts and full-resolution return, annualized return, maximum
@@ -221,7 +288,7 @@ observations; rules are never optimized, and these are not independently unseen 
 Insufficient/invalid data is unavailable; stale, gapped, and short history is flagged.
 These are historical simulations on selected tickers, not forecasts.
 
-Both models read the same editable instructions from
+All providers read the same editable instructions from
 `backend/service/research/prompt.md`. Restart research workers after editing.
 The prompt requests valuation with verified reporting dates and a bull/base/bear
 scenario table, using a disclosed 12-month horizon unless the user supplies one.

@@ -9,7 +9,7 @@ from sqlalchemy import select
 from core.config import settings
 from db.orm_models import User, UserRole
 from db.research_models import ResearchDailyUsage, ResearchModelUsage, ResearchRun
-from service.research.agent import ResearchAgent
+from service.research.langchain_agent import LangChainOpenAIAgent
 
 
 @pytest.fixture
@@ -213,7 +213,7 @@ async def test_worker_completion_persists_report_and_followups(
         await self.checkpoint("Reading issuer sources")
         return "## Summary\nA report with [issuer evidence](https://www.apple.com)."
 
-    monkeypatch.setattr(ResearchAgent, "run", fake_agent)
+    monkeypatch.setattr(LangChainOpenAIAgent, "run", fake_agent)
     await worker_db.process_run(run_id, "worker-test")
     detail = (await client.get(f"/research/sessions/{session}")).json()
     assert detail["runs"][0]["status"] == "completed"
@@ -275,7 +275,7 @@ async def test_worker_failure_keeps_evidence(
         await self.checkpoint("Reading filings")
         raise ResearchFailure("Provider temporarily unavailable")
 
-    monkeypatch.setattr(ResearchAgent, "run", fail_agent)
+    monkeypatch.setattr(LangChainOpenAIAgent, "run", fail_agent)
     await worker_db.process_run(run_id, "worker-test")
     response = (await client.get(f"/research/runs/{run_id}")).json()
     assert response["status"] == "failed"
@@ -421,7 +421,7 @@ async def test_anthropic_selection_and_configuration(client, research_user, monk
 async def test_worker_uses_saved_anthropic_model(
     client, db_session, research_user, worker_db, monkeypatch
 ):
-    from service.research.anthropic_agent import AnthropicResearchAgent
+    from service.research.langchain_agent import LangChainAnthropicAgent
     from service.research.queue import claim_run
 
     monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "fake-key")
@@ -439,7 +439,7 @@ async def test_worker_uses_saved_anthropic_model(
         assert self.model == "saved-model"
         return "Claude report"
 
-    monkeypatch.setattr(AnthropicResearchAgent, "run", fake_agent)
+    monkeypatch.setattr(LangChainAnthropicAgent, "run", fake_agent)
     await worker_db.process_run(run_id, "claude-worker")
     result = (await client.get(f"/research/runs/{run_id}")).json()
     assert result["status"] == "completed"
@@ -498,7 +498,7 @@ async def test_model_usage_is_stored_per_model_including_failovers(
     client, db_session, research_user, worker_db, monkeypatch
 ):
     from service.research.agent import ProviderUnavailable
-    from service.research.anthropic_agent import AnthropicResearchAgent
+    from service.research.langchain_agent import LangChainAnthropicAgent
     from service.research.orchestrator import COOLDOWNS
     from service.research.queue import claim_run
 
@@ -515,8 +515,8 @@ async def test_model_usage_is_stored_per_model_including_failovers(
         self.input_tokens, self.output_tokens = 100, 50
         return "Report"
 
-    monkeypatch.setattr(AnthropicResearchAgent, "run", out_of_credit)
-    monkeypatch.setattr(ResearchAgent, "run", answer)
+    monkeypatch.setattr(LangChainAnthropicAgent, "run", out_of_credit)
+    monkeypatch.setattr(LangChainOpenAIAgent, "run", answer)
     session = await create(client)
     for _ in range(2):
         response = await client.post(

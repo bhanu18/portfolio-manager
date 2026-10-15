@@ -40,7 +40,7 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "f
 # ---------------------------------------------------------------- mypy
 [tool.mypy]
 python_version = "3.12"
-files = ["main.py", "core", "db", "models", "routers", "service"]
+files = ["main.py", "core", "db", "models", "routers", "service", "evals"]
 explicit_package_bases = true
 plugins = ["pydantic.mypy"]
 ignore_missing_imports = true

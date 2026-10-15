@@ -1,14 +1,16 @@
 """Auto-mode routing tests: fake agents and market data, no network or paid calls."""
 
 from typing import ClassVar
+from unittest.mock import MagicMock
 
-import httpx
 import pytest
+from langsmith import Client, traceable, tracing_context
+from langsmith.run_trees import RunTree
 
 from core.config import settings
 from models.research import Citation, MarketSnapshot
 from service.research import orchestrator as module
-from service.research.agent import ProviderUnavailable, ResearchAgent, ResearchFailure, http_failure
+from service.research.agent import ProviderUnavailable, ResearchAgent, ResearchFailure
 from service.research.orchestrator import (
     FailoverResearchAgent,
     ResearchOrchestrator,
@@ -106,6 +108,43 @@ def test_heuristics():
         TaskProfile(kind="lookup", symbols=["nvda", "AMD", "not a ticker"]),
     )
     assert (merged.kind, merged.symbols) == ("analysis", ["NVDA", "AMD"])
+
+
+@pytest.mark.parametrize(
+    ("prompt", "symbols"),
+    [
+        ("$MSFT market cap and forward P/E", ["MSFT"]),  # not P, E
+        ("Compare BND's yield to 6-month T-bills", ["BND"]),  # not T
+        ("How is the S&P 500 doing vs QQQ?", ["QQQ"]),  # not S, P
+        ("What did the FOMC say?", []),  # acronym, not a ticker
+        ("How much is Apple stock?", ["AAPL"]),  # company name
+        ("compare spy and vti", ["SPY", "VTI"]),  # lowercase known tickers
+        ("Is there a meta-analysis of momentum?", []),  # "meta" inside a word
+        ("Price of BRK.B and F", ["BRK.B", "F"]),  # real one-letter tickers still work
+    ],
+)
+def test_symbol_extraction(prompt, symbols):
+    assert heuristic_profile(prompt).symbols == symbols
+
+
+def test_freshness_needs_web_only_without_market_data():
+    assert not heuristic_profile("NVDA price right now").needs_web
+    assert not heuristic_profile("What are 3-month T-bill rates today?").needs_web
+    assert heuristic_profile("What's moving markets right now?").needs_web
+    assert heuristic_profile("How did the Fed decision this week affect Treasury yields?").needs_web
+    assert not heuristic_profile("Current 2-year T-note yield?").needs_web
+
+
+def test_follow_ups_keep_the_treasury_topic_unless_a_ticker_is_asked():
+    previous = "Show the Treasury yield curve"
+    assert heuristic_profile("Thanks, what about the 10-year?", previous).treasury
+    follow_up = heuristic_profile("what about AMZN?", previous)
+    assert (follow_up.treasury, follow_up.symbols) == (False, ["AMZN"])
+
+
+def test_buy_questions_are_analysis():
+    assert heuristic_profile("Best AI stocks to buy").kind == "analysis"
+    assert heuristic_profile("AAPL Q3 EPS vs estimates").kind == "news"
 
 
 def test_candidates_fall_back_and_skip_local_for_web(setup, monkeypatch):
@@ -230,28 +269,6 @@ async def test_all_models_unavailable(setup):
         await orchestrator.run("AAPL price?", [])
 
 
-@pytest.mark.parametrize(
-    ("status", "body", "unavailable", "cooldown"),
-    [
-        (400, {"error": {"message": "Your credit balance is too low"}}, True, 1800),
-        (429, {"error": {"code": "insufficient_quota"}}, True, 1800),
-        (429, {"error": "rate limited"}, True, 60),
-        (401, {"error": "bad key"}, True, 1800),
-        (529, {"error": "overloaded"}, True, 60),
-        (400, {"error": "SECRET bad schema"}, False, None),
-    ],
-)
-def test_http_failure_classification(status, body, unavailable, cooldown):
-    request = httpx.Request("POST", "https://api.example.com")
-    error = httpx.HTTPStatusError(
-        "x", request=request, response=httpx.Response(status, json=body, request=request)
-    )
-    failure = http_failure(error, "Provider")
-    assert isinstance(failure, ProviderUnavailable) is unavailable
-    assert getattr(failure, "cooldown", None) == cooldown
-    assert "SECRET" not in str(failure)
-
-
 async def test_explicit_provider_runs_alone_when_healthy(setup):
     _, _, market_calls, events = setup
 
@@ -336,3 +353,83 @@ def test_usage_by_model_skips_non_model_steps():
             "failed_calls": 1,
         },
     }
+
+
+async def test_auto_run_is_traced_as_one_tree(setup):
+    """Steps become LangSmith child runs with tokens; a mock client keeps it offline."""
+    orchestrator, _, _, _ = setup
+    roots: list[RunTree] = []
+    traced = traceable(name="research")(orchestrator.run)
+    with tracing_context(enabled=True, client=MagicMock(spec=Client)):
+        await traced(
+            "Backtest MSFT MA50/200 and latest earnings news",
+            [],
+            langsmith_extra={"on_end": roots.append},
+        )
+    (root,) = roots
+    (graph,) = root.child_runs
+    assert (graph.name, graph.run_type) == ("auto research", "chain")
+    nodes = {run.name: run for run in graph.child_runs}
+    assert set(nodes) == {"classify", "gather market data", "web research", "writer"}
+    (writer,) = nodes["writer"].child_runs
+    assert (writer.name, writer.run_type) == ("writer: anthropic", "llm")
+    assert writer.extra["metadata"]["ls_model_name"] == "claude-sonnet-5-5"
+    assert writer.outputs["usage_metadata"] == {
+        "input_tokens": 100,
+        "output_tokens": 10,
+        "total_tokens": 110,
+    }
+    (web_step,) = nodes["web research"].child_runs
+    assert (web_step.name, web_step.extra["metadata"]["allowed_tools"]) == (
+        "web: openai",
+        ["web_search"],
+    )
+
+
+async def test_langchain_steps_are_chain_spans(setup, monkeypatch):
+    """LangChain traces its own LLM runs, so its steps must not be LLM runs too."""
+    from service.research.langchain_agent import LangChainResearchAgent
+
+    class FakeLangChainAgent(FakeAgent, LangChainResearchAgent):
+        provider, label = "anthropic", "Anthropic"
+
+    monkeypatch.setitem(module.AGENTS, "anthropic", FakeLangChainAgent)
+    orchestrator, _, _, _ = setup
+    roots: list[RunTree] = []
+    traced = traceable(name="research")(orchestrator.run)
+    with tracing_context(enabled=True, client=MagicMock(spec=Client)):
+        await traced("Backtest MSFT MA50/200", [], langsmith_extra={"on_end": roots.append})
+    (root,) = roots
+    writer_node = next(run for run in root.child_runs[0].child_runs if run.name == "writer")
+    (writer,) = writer_node.child_runs
+    assert (writer.name, writer.run_type) == ("writer: anthropic", "chain")
+    assert "usage_metadata" not in writer.outputs
+    assert writer.outputs["tokens"]["total_tokens"] == 110
+
+
+async def test_data_and_web_run_in_parallel(setup):
+    """The market-data step and the web step overlap; the writer starts after both finish."""
+    import asyncio
+
+    orchestrator, _, _, _ = setup
+    order: list[str] = []
+    gather, web = orchestrator.gather, orchestrator.web
+
+    async def slow_gather(profile, prompt):
+        order.append("data start")
+        await asyncio.sleep(0.05)
+        order.append("data end")
+        return await gather(profile, prompt)
+
+    async def tracked_web(prompt, history):
+        order.append("web start")
+        notes = await web(prompt, history)
+        order.append("web end")
+        return notes
+
+    orchestrator.gather, orchestrator.web = slow_gather, tracked_web
+    report = await orchestrator.run("Backtest MSFT MA50/200 and latest earnings news", [])
+    assert report == "Report by claude-sonnet-5-5"
+    assert order.index("web start") < order.index("data end")  # overlapped
+    assert [s["role"] for s in orchestrator.steps][-1] == "writer"
+    assert "Earnings beat" in FakeAgent.runs[-1].extra_instructions

@@ -206,3 +206,6 @@ frontend/vite.config.d.ts
 # Claude Code agent scratch space (includes git worktrees); shared settings are tracked.
 .claude/*
 !.claude/settings.json
+
+# Local eval outputs (LangSmith keeps the shared history)
+backend/evals/results/

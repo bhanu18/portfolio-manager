@@ -60,6 +60,15 @@ class Settings(BaseSettings):
     RESEARCH_LEASE_SECONDS: int = Field(default=30, ge=15)
     RESEARCH_POLL_SECONDS: float = Field(default=2, ge=0.1)
 
+    # --- LangSmith tracing + evals (off by default: traces contain user questions) ---
+    LANGSMITH_TRACING: bool = False
+    LANGSMITH_API_KEY: str = ""
+    LANGSMITH_PROJECT: str = "portfolio-research"
+    LANGSMITH_ENDPOINT: str = "https://api.smith.langchain.com"
+    # Redact prompts/reports in traces while keeping structure, timings and token counts.
+    LANGSMITH_HIDE_INPUTS: bool = False
+    LANGSMITH_HIDE_OUTPUTS: bool = False
+
     # --- Email Settings ---
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587

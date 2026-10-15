@@ -9,6 +9,7 @@ from datetime import timedelta
 from typing import Any
 from uuid import uuid4
 
+from langsmith import traceable
 from sqlalchemy import select, update
 
 from core.config import settings
@@ -19,6 +20,7 @@ from service.research.agent import ResearchFailure
 from service.research.configuration import model_for_provider, provider_enabled, provider_options
 from service.research.orchestrator import FailoverResearchAgent, ResearchOrchestrator
 from service.research.queue import claim_run
+from service.research.tracing import configure_tracing, flush_traces
 from service.research.usage import add_usage
 
 logger = logging.getLogger(__name__)
@@ -148,7 +150,15 @@ async def process_run(run_id: str, worker_id: str) -> None:
                 f"The {provider} API key is not configured on this worker. Configure it and retry."
             )
         async with asyncio.timeout(settings.RESEARCH_TIMEOUT_SECONDS):
-            report = await agent.run(prompt, history)
+            # One LangSmith trace per run (no-op unless tracing is configured).
+            traced = traceable(
+                run_type="chain",
+                name="research",
+                tags=[provider],
+                metadata={"run_id": run_id, "provider": provider, "model": model},
+                process_outputs=lambda report: {"report": report, "steps": agent.steps},
+            )(agent.run)
+            report = await traced(prompt, history)
             await agent.checkpoint("Saving report")
             await finish(run_id, worker_id, report=report)
     except TimeoutError:
@@ -212,6 +222,7 @@ async def main() -> None:
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stop.set)
+    configure_tracing()
     worker_id = str(uuid4())
     logger.info("Research worker started: %s", worker_id)
     try:
@@ -227,6 +238,7 @@ async def main() -> None:
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(stop.wait(), timeout=settings.RESEARCH_POLL_SECONDS)
     finally:
+        flush_traces()
         await engine.dispose()
 
 

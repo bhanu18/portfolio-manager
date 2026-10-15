@@ -10,6 +10,7 @@ import os
 import sys
 from collections.abc import AsyncGenerator, Generator
 
+import langsmith
 import pytest
 from alembic import command
 from alembic.config import Config
@@ -23,6 +24,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 os.environ["TESTING"] = "1"
 
 from core.config import settings
+
+# Tests never send traces, whatever LANGSMITH_* the shell exports.
+langsmith.configure(enabled=False)
 
 TEST_ASYNC_URL = settings.TEST_DATABASE_URL or ""
 TEST_SYNC_URL = (
@@ -115,3 +119,13 @@ async def client(
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def reset_provider_cooldowns() -> Generator[None, None, None]:
+    """Provider cooldowns are per-process state; never let one test's failure leak to another."""
+    from service.research.orchestrator import COOLDOWNS
+
+    COOLDOWNS.clear()
+    yield
+    COOLDOWNS.clear()

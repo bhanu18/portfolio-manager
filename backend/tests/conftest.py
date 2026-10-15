@@ -10,6 +10,7 @@ import os
 import sys
 from collections.abc import AsyncGenerator, Generator
 
+import langsmith
 import pytest
 from alembic import command
 from alembic.config import Config
@@ -23,6 +24,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 os.environ["TESTING"] = "1"
 
 from core.config import settings
+
+# Tests never send traces, whatever LANGSMITH_* the shell exports.
+langsmith.configure(enabled=False)
 
 TEST_ASYNC_URL = settings.TEST_DATABASE_URL or ""
 TEST_SYNC_URL = (

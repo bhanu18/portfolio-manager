@@ -12,6 +12,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from langsmith import traceable
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from core.config import settings
@@ -21,6 +22,7 @@ from service.research.configuration import provider_enabled
 from service.research.investment import investment_snapshot
 from service.research.local_agent import LocalResearchAgent, local_json
 from service.research.providers import stock_snapshot, treasury_snapshot
+from service.research.tracing import annotate, usage_metadata
 
 AGENTS: dict[str, type[ResearchAgent]] = {
     "openai": ResearchAgent,
@@ -194,6 +196,8 @@ class ResearchOrchestrator(ResearchAgent):
         self.steps: list[dict[str, Any]] = []
         self.live: ResearchAgent | None = None
         self.live_step: dict[str, Any] | None = None
+        # Routing decision of the last Auto run; read by evals.
+        self.profile: TaskProfile | None = None
 
     async def checkpoint(self, stage: str) -> None:
         live = self.live
@@ -237,6 +241,40 @@ class ResearchOrchestrator(ResearchAgent):
     async def run_agent(
         self, role: str, target: Target, prompt: str, history: list[dict[str, str]], **options: Any
     ) -> tuple[str, ResearchAgent]:
+        """Run one model step, traced as an LLM run so LangSmith rolls up tokens and cost."""
+
+        def outputs(result: tuple[str, ResearchAgent]) -> dict[str, Any]:
+            report, agent = result
+            return {
+                "report": report,
+                "citations": agent.citations,
+                "usage_metadata": usage_metadata(agent.input_tokens, agent.output_tokens),
+            }
+
+        traced = traceable(
+            run_type="llm",
+            name=f"{role}: {target.provider}",
+            metadata={
+                "ls_provider": target.provider,
+                "ls_model_name": target.model,
+                "role": role,
+                "allowed_tools": sorted(options["allowed_tools"])
+                if options.get("allowed_tools") is not None
+                else "all",
+            },
+            process_inputs=lambda inputs: {
+                "prompt": inputs["prompt"],
+                "history": inputs["history"],
+                "instructions": inputs.get("extra_instructions", ""),
+            },
+            process_outputs=outputs,
+        )(self.run_model_step)
+        result: tuple[str, ResearchAgent] = await traced(role, target, prompt, history, **options)
+        return result
+
+    async def run_model_step(
+        self, role: str, target: Target, prompt: str, history: list[dict[str, str]], **options: Any
+    ) -> tuple[str, ResearchAgent]:
         async def sub_progress(**values: Any) -> None:
             await self.checkpoint(values["stage"])
 
@@ -256,6 +294,14 @@ class ResearchOrchestrator(ResearchAgent):
             step.update(status="failed", note=str(error)[:200])
             raise
         finally:
+            # Failed steps return nothing, so record what they spent on the run itself.
+            annotate(
+                metadata={
+                    "status": step["status"],
+                    "input_tokens": agent.input_tokens,
+                    "output_tokens": agent.output_tokens,
+                }
+            )
             self.evidence[:] = self.merged_evidence(agent)
             self.live = self.live_step = None
             step.update(input_tokens=agent.input_tokens, output_tokens=agent.output_tokens)
@@ -264,6 +310,7 @@ class ResearchOrchestrator(ResearchAgent):
             self.tool_calls += agent.tool_calls
             self.model_turns += agent.model_turns
 
+    @traceable(run_type="chain", name="classify")
     async def classify(self, prompt: str, history: list[dict[str, str]]) -> TaskProfile:
         previous = next(
             (item["content"] for item in reversed(history) if item["role"] == "user"), ""
@@ -293,6 +340,7 @@ class ResearchOrchestrator(ResearchAgent):
         )
         return profile
 
+    @traceable(run_type="chain", name="gather market data")
     async def gather(self, profile: TaskProfile, prompt: str) -> tuple[list[str], bool]:
         """Fetch market data directly (no LLM). Returns model-context notes and completeness."""
         if profile.kind == "clarify" or not (profile.symbols or profile.treasury):
@@ -331,6 +379,7 @@ class ResearchOrchestrator(ResearchAgent):
         await self.checkpoint("Checking market evidence")
         return notes, not missing
 
+    @traceable(run_type="chain", name="web research")
     async def web(self, prompt: str, history: list[dict[str, str]]) -> str:
         targets = candidates("cheap", web=True)
         if not targets:
@@ -361,7 +410,7 @@ class ResearchOrchestrator(ResearchAgent):
 
     async def run(self, prompt: str, history: list[dict[str, str]]) -> str:
         await self.checkpoint("Planning research")
-        profile = await self.classify(prompt, history)
+        profile = self.profile = await self.classify(prompt, history)
         notes, complete = await self.gather(profile, prompt)
         web_notes = await self.web(prompt, history) if profile.needs_web else ""
         context = WRITER_ROLE

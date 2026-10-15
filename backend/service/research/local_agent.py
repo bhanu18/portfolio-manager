@@ -6,9 +6,11 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 import httpx
+from langsmith import traceable
 
 from core.config import settings
 from service.research.agent import TOOLS, ProviderUnavailable, ResearchAgent, ResearchFailure
+from service.research.tracing import annotate, usage_metadata
 
 CHAT_TOOLS: list[dict[str, Any]] = [
     {
@@ -52,6 +54,12 @@ def strip_thinking(text: str) -> str:
     return THINK.sub("", text).strip()
 
 
+def traced_json_outputs(result: tuple[dict[str, Any] | None, int, int]) -> dict[str, Any]:
+    data, input_tokens, output_tokens = result
+    return {"data": data, "usage_metadata": usage_metadata(input_tokens, output_tokens)}
+
+
+@traceable(run_type="llm", name="local_json", process_outputs=traced_json_outputs)
 async def local_json(
     system: str, prompt: str, *, max_tokens: int = 300, model: str | None = None
 ) -> tuple[dict[str, Any] | None, int, int]:
@@ -62,6 +70,7 @@ async def local_json(
     model = (model or settings.LOCAL_LLM_MODEL).strip()
     if not model:
         return None, 0, 0
+    annotate(metadata={"ls_provider": "local", "ls_model_name": model})
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30, connect=3)) as client:
             response = await client.post(

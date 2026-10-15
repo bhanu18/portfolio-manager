@@ -1,9 +1,12 @@
 """Auto-mode routing tests: fake agents and market data, no network or paid calls."""
 
 from typing import ClassVar
+from unittest.mock import MagicMock
 
 import httpx
 import pytest
+from langsmith import Client, traceable, tracing_context
+from langsmith.run_trees import RunTree
 
 from core.config import settings
 from models.research import Citation, MarketSnapshot
@@ -336,3 +339,36 @@ def test_usage_by_model_skips_non_model_steps():
             "failed_calls": 1,
         },
     }
+
+
+async def test_auto_run_is_traced_as_one_tree(setup):
+    """Steps become LangSmith child runs with tokens; a mock client keeps it offline."""
+    orchestrator, _, _, _ = setup
+    roots: list[RunTree] = []
+    traced = traceable(name="research")(orchestrator.run)
+    with tracing_context(enabled=True, client=MagicMock(spec=Client)):
+        await traced(
+            "Backtest MSFT MA50/200 and latest earnings news",
+            [],
+            langsmith_extra={"on_end": roots.append},
+        )
+    (root,) = roots
+    children = [(run.name, run.run_type) for run in root.child_runs]
+    assert children == [
+        ("classify", "chain"),
+        ("gather market data", "chain"),
+        ("web research", "chain"),
+        ("writer: anthropic", "llm"),
+    ]
+    writer = root.child_runs[-1]
+    assert writer.extra["metadata"]["ls_model_name"] == "claude-sonnet-5-5"
+    assert writer.outputs["usage_metadata"] == {
+        "input_tokens": 100,
+        "output_tokens": 10,
+        "total_tokens": 110,
+    }
+    (web_step,) = root.child_runs[2].child_runs
+    assert (web_step.name, web_step.extra["metadata"]["allowed_tools"]) == (
+        "web: openai",
+        ["web_search"],
+    )

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from langsmith import traceable
 
 from core.config import settings
 from models.research import Citation, Evidence, MarketSnapshot
@@ -171,6 +172,16 @@ class ResearchAgent:
             )
 
     async def execute_tool(self, item: dict[str, Any]) -> str:
+        name = item.get("name")
+        traced = traceable(
+            run_type="tool",
+            name=name if isinstance(name, str) else "unknown_tool",
+            process_inputs=lambda inputs: {"arguments": inputs["item"].get("arguments")},
+        )(self.run_tool)
+        result: str = await traced(item)
+        return result
+
+    async def run_tool(self, item: dict[str, Any]) -> str:
         name = item.get("name")
         await self.checkpoint(
             "Reading Treasury rates"

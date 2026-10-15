@@ -28,6 +28,7 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 - Backend dev: `cd backend && source venv/bin/activate && uvicorn main:app --reload`
 - Docker: `docker build -t portfolio-api backend && docker run --env-file backend/.env -p 8000:8000 portfolio-api`
 - Backend checks (run in `backend/`): `ruff check .`, `ruff format .`, `mypy` (files list in pyproject), `pytest` (needs `TEST_DATABASE_URL`, a disposable MySQL DB)
+- Research evals (in `backend/`): `venv/bin/python -m evals.run_research routing --rules-only` (free); `full --market offline --limit 5` calls paid models
 - New migration: `cd backend && alembic revision --autogenerate -m "..." && alembic upgrade head`
 - Frontend dev: `cd frontend && npm run dev` (port 5173, strictPort)
 - Frontend checks: `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm run build`
@@ -55,7 +56,11 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 - `agent.py` (OpenAI Responses API), `anthropic_agent.py` (Messages API), `local_agent.py` (OpenAI-compatible/Ollama, plus `local_json` for routing) are hand-rolled httpx tool loops sharing `ResearchAgent` (budgets, evidence, citations, `checkpoint` progress). No LLM SDK or framework is used.
 - `orchestrator.py`: `ResearchOrchestrator` (Auto) = classify (local JSON + regex floor) → gather (deterministic tools, no LLM) → web (cheap tier) → writer (tier by kind), with `ProviderUnavailable` failover + per-process cooldowns. `FailoverResearchAgent` = explicit provider with failover. Per-step usage goes in `research_runs.steps` (the frontend renders it — keep that shape).
 - Tests: `tests/test_orchestrator.py` swaps `AGENTS` with `FakeAgent`; `test_research_agent.py`, `test_anthropic_research.py`, `test_local_agent.py` mock httpx payloads.
-- Planned (2026-10-15, not started): move orchestration to LangChain/LangGraph with LangSmith tracing + evals. Agreed order: (1) LangSmith tracing via `@traceable` on current code, (2) eval dataset + evaluators baseline on current orchestrator, (3) swap provider adapters to LangChain chat models, (4) rebuild Auto as a LangGraph `StateGraph`, gated on eval parity. Tracing off by default and in tests; worker must flush traces on shutdown; LangSmith reads `os.environ`, not pydantic settings.
+- Tracing (Phase 1, done 2026-10-15): `service/research/tracing.py` applies `LANGSMITH_*` settings via `langsmith.configure` (pydantic settings, not env) in the worker's `main()`; off unless `LANGSMITH_TRACING=true` AND a key. Spans: worker `research` (chain) → `classify`/`gather market data`/`web research` (chain) → `run_agent` as `llm` runs named `<role>: <provider>` with `ls_provider`/`ls_model_name` + `usage_metadata` → tools via `execute_tool` (body is `run_tool`). `local_json` is an `llm` run. `conftest.py` calls `langsmith.configure(enabled=False)`; trace-shape test uses `tracing_context(enabled=True, client=MagicMock(spec=Client))` (the `"local"` mode still hits the network).
+- Evals (Phase 2, done 2026-10-15): `backend/evals/` — see its README. `python -m evals.run_research routing|full`, dataset `evals/datasets/research.jsonl` (40 labelled examples, `id` = LangSmith sync key), evaluators in `evals/evaluators.py`, offline market fixtures in `evals/fixtures.py`. Uploads to LangSmith dataset `portfolio-research` when `LANGSMITH_API_KEY` is set, else local + `evals/results/` (gitignored). `ResearchOrchestrator.profile` exposes the routing decision for evals. Rules-only baseline: kind 0.925, symbols 0.85 (router bugs: `P/E`→E,P; `T-bill`→T; lowercase/company names missed) — left unfixed on purpose as the baseline.
+- LangSmith upload path (`run_langsmith`/`aevaluate`) is untested against the real service: cloud sessions block `api.smith.langchain.com` (add it to the allowlist). `sync_dataset` is unit-tested with a mock.
+- Next (not started): Phase 3 provider adapters → LangChain chat models; Phase 4 Auto as a LangGraph `StateGraph`. Gate each on eval parity vs a `full --market offline` baseline (needs API keys; none in cloud sessions).
+- Deps: `langsmith==0.14.8` pulls `httpx2`, which forced `idna==3.20`, `anyio==4.15.1`, `typing_extensions==4.16.0`.
 
 ## Cloud sessions (Claude Code on the web)
 - `.claude/settings.json` runs `scripts/cloud_setup.sh` on SessionStart (`startup|resume`, 600s timeout). The script exits immediately unless `CLAUDE_CODE_REMOTE=true`, so it no-ops locally.
@@ -63,7 +68,7 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 - No `backend/.env` in the cloud: the hook exports `DATABASE_URL`, `SYNC_DATABASE_URL`, `TEST_DATABASE_URL`, `SECRET_KEY` via `$CLAUDE_ENV_FILE` (skipped if a `.env` exists). Use `venv/bin/<tool>` in `backend/`.
 - Python must be **3.12** (`uv venv venv --python 3.12`); the VM default is 3.13 and 3.14 breaks pydantic_core and watchfiles wheels.
 - yfinance needs the Yahoo domains (`*.finance.yahoo.com`, `fc.yahoo.com`) on the environment's network allowlist. A 429 from Yahoo is their rate limit, not the proxy. Tests don't hit Yahoo.
-- Verified 2026-10-15 on MariaDB: ruff, ruff format, mypy, pytest (185 passed); frontend lint (2 known warnings), format:check, typecheck, build.
+- Verified 2026-10-15 on MariaDB: ruff, ruff format, mypy, pytest (196 passed); frontend lint (2 known warnings), format:check, typecheck, build.
 
 ## Direction (decided 2026-09-16)
 - Goal: **portfolio showcase** (public repo for job hunting) — polish, CI and a clean README matter.

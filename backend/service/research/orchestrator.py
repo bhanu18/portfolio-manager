@@ -19,15 +19,19 @@ from core.config import settings
 from service.research.agent import ProviderUnavailable, ResearchAgent, ResearchFailure
 from service.research.configuration import provider_enabled
 from service.research.investment import investment_snapshot
-from service.research.langchain_agent import LangChainAnthropicAgent, LangChainResearchAgent
-from service.research.local_agent import LocalResearchAgent, local_json
+from service.research.langchain_agent import (
+    LangChainAnthropicAgent,
+    LangChainLocalAgent,
+    LangChainResearchAgent,
+)
+from service.research.local_agent import local_json
 from service.research.providers import stock_snapshot, treasury_snapshot
 from service.research.tracing import annotate, usage_metadata
 
 AGENTS: dict[str, type[ResearchAgent]] = {
     "openai": ResearchAgent,
     "anthropic": LangChainAnthropicAgent,
-    "local": LocalResearchAgent,
+    "local": LangChainLocalAgent,
 }
 READ_TOOLS = {"stock_snapshot", "investment_analysis", "treasury_snapshot"}
 

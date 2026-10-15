@@ -92,7 +92,8 @@ def test_provider_stale_history_and_explicit_adjustments(monkeypatch):
 
 async def test_both_agents_share_calculation_tool_and_persist_charts(monkeypatch):
     from models.research import MarketSnapshot
-    from service.research.anthropic_agent import CLIENT_TOOLS, AnthropicResearchAgent
+    from service.research.langchain_agent import LangChainAnthropicAgent
+    from service.research.tools import make_tools
 
     async def snapshot(symbol):
         return MarketSnapshot(
@@ -108,8 +109,10 @@ async def test_both_agents_share_calculation_tool_and_persist_charts(monkeypatch
     async def progress(**kwargs):
         pass
 
-    assert any(tool["name"] == "investment_analysis" for tool in CLIENT_TOOLS)
-    for cls in (agent_module.ResearchAgent, AnthropicResearchAgent):
+    assert any(
+        tool.name == "investment_analysis" for tool in make_tools(LangChainAnthropicAgent(progress))
+    )
+    for cls in (agent_module.ResearchAgent, LangChainAnthropicAgent):
         agent = cls(progress)
         output = json.loads(
             await agent.execute_tool(

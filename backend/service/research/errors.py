@@ -74,3 +74,34 @@ def provider_failure(error: Exception, name: str, rejected: str | None = None) -
         body = error.response.text[:2000].lower()
         return classify_failure(error.status_code, body, name, rejected)
     raise error
+
+
+def local_failure(error: Exception, model: str) -> ResearchFailure:
+    """Map an OpenAI-compatible local server error to actionable advice (pull the model,
+    start the server). Like `provider_failure`, anything else is re-raised."""
+    import openai
+
+    if isinstance(error, openai.APITimeoutError):
+        return ProviderUnavailable(
+            "The local model took too long to answer. Try a smaller model or narrower question.",
+            cooldown=60,
+        )
+    if isinstance(error, openai.APIConnectionError):
+        return ProviderUnavailable(
+            "The local model server could not be reached. Is it running at LOCAL_LLM_BASE_URL?",
+            cooldown=60,
+        )
+    if isinstance(error, openai.APIStatusError):
+        if error.status_code == 404:
+            return ProviderUnavailable(
+                f"The local model '{model}' was not found. Pull it first (e.g. `ollama pull {model}`).",
+                cooldown=300,
+            )
+        if error.status_code >= 500:
+            return ProviderUnavailable(
+                "The local model server failed. Check its logs.", cooldown=60
+            )
+        return ResearchFailure(
+            "The local model server rejected the request. Check LOCAL_LLM_MODEL and server logs."
+        )
+    raise error

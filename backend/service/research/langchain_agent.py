@@ -1,9 +1,11 @@
 """Research agents on LangChain: `create_agent` plus middleware that keeps the research rules.
 
-`BudgetMiddleware` reproduces the httpx loops' behaviour: token, context and tool-call budgets
-(web searches included), per-call output caps, progress stages, source collection, stop-reason
-checks, and Anthropic `pause_turn` continuation. Provider errors become the same
-`ProviderUnavailable`/`ResearchFailure` the orchestrator fails over on.
+`BudgetMiddleware` keeps the research rules for every provider: token, context and tool-call
+budgets (web searches included), per-call output caps, progress stages, source collection,
+and safe answers for bad tool calls. Each agent class supplies what differs per provider:
+stop/finish checks, Anthropic `pause_turn` continuation, request settings, error advice.
+Provider errors become the same `ProviderUnavailable`/`ResearchFailure` the orchestrator fails
+over on.
 """
 
 import json
@@ -21,8 +23,9 @@ from langgraph.types import Command
 from core.config import settings
 from models.research import Citation
 from service.research.agent import ResearchAgent
-from service.research.errors import ResearchFailure, provider_failure
-from service.research.models import chat_model
+from service.research.errors import ResearchFailure, local_failure, provider_failure
+from service.research.local_agent import NO_WEB, strip_thinking
+from service.research.models import chat_model, local_body
 from service.research.providers import safe_url
 from service.research.tools import make_tools, web_search_tool
 
@@ -82,11 +85,11 @@ class BudgetMiddleware(AgentMiddleware):
                 "The research context budget was reached. Try a narrower question or a new session."
             )
         agent.model_turns += 1
-        await agent.checkpoint("Searching sources and drafting analysis")
+        await agent.checkpoint(agent.drafting_stage)
         cap = min(4000, remaining_output)
         response = await handler(
             request.override(
-                tools=tools, model_settings={**request.model_settings, "max_tokens": cap}
+                tools=tools, model_settings={**request.model_settings, **agent.call_settings(cap)}
             )
         )
         message = next(m for m in reversed(response.result) if isinstance(m, AIMessage))
@@ -123,10 +126,7 @@ class BudgetMiddleware(AgentMiddleware):
             raise ResearchFailure(
                 f"{agent.label} web search failed or reached its search limit. Partial sources were saved; retry with a narrower question."
             )
-        if stop_reason(message) not in ("end_turn", "tool_use", "pause_turn"):
-            raise ResearchFailure(
-                f"{agent.label} returned an incomplete answer or could not answer this request. Partial sources were saved; try a narrower question."
-            )
+        agent.check_response(message)
 
     @hook_config(can_jump_to=["model"])
     async def aafter_model(self, state: Any, runtime: Any) -> dict[str, Any] | None:
@@ -182,6 +182,7 @@ class LangChainResearchAgent(ResearchAgent):
     provider: ClassVar[str]
     label: ClassVar[str]
     rejected: ClassVar[str | None] = None
+    drafting_stage: ClassVar[str] = "Searching sources and drafting analysis"
 
     def __init__(
         self, progress: Callable[..., Awaitable[None]], *, model: str | None = None, **options: Any
@@ -192,6 +193,29 @@ class LangChainResearchAgent(ResearchAgent):
     @classmethod
     def default_model(cls) -> str:
         raise NotImplementedError
+
+    def call_settings(self, max_tokens: int) -> dict[str, Any]:
+        """Per-call model settings (passed to `bind`)."""
+        return {"max_tokens": max_tokens}
+
+    def check_response(self, message: AIMessage) -> None:
+        """Raise if a model response cannot lead to a complete answer."""
+        if stop_reason(message) not in ("end_turn", "tool_use", "pause_turn"):
+            raise ResearchFailure(
+                f"{self.label} returned an incomplete answer or could not answer this request. Partial sources were saved; try a narrower question."
+            )
+
+    def finished(self, message: AIMessage) -> bool:
+        return stop_reason(message) == "end_turn"
+
+    def failure(self, error: Exception) -> ResearchFailure:
+        return provider_failure(error, self.label, self.rejected)
+
+    def clean(self, text: str) -> str:
+        return text
+
+    def empty_report(self) -> ResearchFailure:
+        return ResearchFailure(f"{self.label} returned no complete report. Please retry.")
 
     def history_messages(self, prompt: str, history: list[dict[str, str]]) -> list[BaseMessage]:
         turns: list[dict[str, Any]] = [*history, {"role": "user", "content": prompt}]
@@ -236,7 +260,7 @@ class LangChainResearchAgent(ResearchAgent):
         except ResearchFailure:
             raise
         except Exception as error:
-            raise provider_failure(error, self.label, self.rejected) from None
+            raise self.failure(error) from None
         self.transcript = result["messages"]
         return self.report(final_turn(self.transcript))
 
@@ -244,8 +268,8 @@ class LangChainResearchAgent(ResearchAgent):
         """Join the final turn's text; each safe citation adds a ` [Source N]` marker after
         its text block, and the citation span covers that marker (what the UI highlights)."""
         last = turn[-1] if turn else None
-        if last is None or last.tool_calls or stop_reason(last) != "end_turn":
-            raise ResearchFailure(f"{self.label} returned no complete report. Please retry.")
+        if last is None or last.tool_calls or not self.finished(last):
+            raise self.empty_report()
         report = ""
         citations: list[dict[str, Any]] = []
         for message in turn:
@@ -254,7 +278,7 @@ class LangChainResearchAgent(ResearchAgent):
                     continue
                 if report:
                     report += "\n\n"
-                report += str(block.get("text", ""))
+                report += self.clean(str(block.get("text", "")))
                 annotations: Any = block.get("annotations") or []
                 for annotation in annotations:
                     url = str(annotation.get("url", ""))
@@ -271,7 +295,7 @@ class LangChainResearchAgent(ResearchAgent):
                         ).model_dump()
                     )
         if not report.strip():
-            raise ResearchFailure(f"{self.label} returned no complete report. Please retry.")
+            raise self.empty_report()
         if not self.evidence:
             report = NO_EVIDENCE + report
             for citation in citations:
@@ -289,3 +313,50 @@ class LangChainAnthropicAgent(LangChainResearchAgent):
     @classmethod
     def default_model(cls) -> str:
         return settings.ANTHROPIC_RESEARCH_MODEL
+
+
+# Ollama-style servers return reasoning separately and LangChain drops it, so an empty or cut-off
+# answer may be a thinking model that spent its budget; say both things.
+OUT_OF_TOKENS = (
+    "The local model ran out of output tokens before answering. If it is a thinking model, set "
+    "LOCAL_LLM_THINKING=false or raise RESEARCH_MAX_OUTPUT_TOKENS; otherwise try a narrower question."
+)
+
+
+class LangChainLocalAgent(LangChainResearchAgent):
+    """Local models over the OpenAI-compatible Chat Completions API. No web search."""
+
+    provider = "local"
+    label = "The local model"
+    drafting_stage = "Drafting analysis with the local model"
+
+    @classmethod
+    def default_model(cls) -> str:
+        return settings.LOCAL_LLM_MODEL
+
+    def instructions(self) -> str:
+        return f"{super().instructions()}\n\n{NO_WEB}"
+
+    def call_settings(self, max_tokens: int) -> dict[str, Any]:
+        return {"extra_body": local_body(max_tokens)}
+
+    def check_response(self, message: AIMessage) -> None:
+        if not message.tool_calls and finish_reason(message) == "length":
+            raise ResearchFailure(OUT_OF_TOKENS)
+
+    def finished(self, message: AIMessage) -> bool:
+        return finish_reason(message) != "length"
+
+    def failure(self, error: Exception) -> ResearchFailure:
+        return local_failure(error, self.model)
+
+    def clean(self, text: str) -> str:
+        return strip_thinking(text)
+
+    def empty_report(self) -> ResearchFailure:
+        return ResearchFailure(OUT_OF_TOKENS)
+
+
+def finish_reason(message: AIMessage) -> str | None:
+    reason = message.response_metadata.get("finish_reason")
+    return str(reason) if reason is not None else None

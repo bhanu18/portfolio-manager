@@ -22,7 +22,9 @@ def test_failover_owns_retries_and_blocks_are_standard(provider):
     model = chat_model(provider, "some-model", max_tokens=1234)
     assert model.max_retries == 0
     assert model.output_version == "v1"
-    assert model.max_tokens == 1234
+    # Local servers read `max_tokens` from the body (see test_local_model_body).
+    limit = model.extra_body["max_tokens"] if provider == "local" else model.max_tokens
+    assert limit == 1234
 
 
 def test_anthropic():
@@ -45,9 +47,12 @@ def test_local_uses_openai_compatible_server(monkeypatch):
     assert isinstance(model, ChatOpenAI)
     assert model.openai_api_base == "http://localhost:8080/v1"
     assert model.use_responses_api is False
-    assert model.extra_body == {"chat_template_kwargs": {"enable_thinking": False}}
+    assert model.extra_body == {
+        "chat_template_kwargs": {"enable_thinking": False},
+        "max_tokens": 100,
+    }
     forced = chat_model("local", "qwen3:8b", max_tokens=100, thinking=True)
-    assert forced.extra_body == {"chat_template_kwargs": {"enable_thinking": True}}
+    assert forced.extra_body["chat_template_kwargs"] == {"enable_thinking": True}
 
 
 def test_local_without_key_sends_placeholder(monkeypatch):

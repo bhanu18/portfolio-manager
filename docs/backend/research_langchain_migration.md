@@ -223,3 +223,114 @@ did before.
 2. **Steps 5–8, local provider only:** switch `AGENTS["local"]` first. It's free to eval.
 3. **Switch OpenAI, then Anthropic**, each with its recorded fixture and a parity run.
 4. **Step 10:** cleanup.
+
+## PR 1 in detail: building blocks only, no behaviour change
+
+Nothing in the running app imports the new modules, so the worker, API and evals behave
+exactly as before. Only new unit tests exercise them.
+
+### 1. Dependencies
+- In `backend/`: `uv pip install --python venv/bin/python langchain==1.4.6 langchain-openai==1.7.2 langchain-anthropic==1.7.6`.
+- Then `uv pip freeze --python venv/bin/python` and add every new package to `requirements.txt`
+  at its installed version, keeping the file sorted. Expect `langgraph*`, `openai`,
+  `anthropic`, `tiktoken`, `jiter` and friends.
+- Check it resolves from scratch: a fresh 3.12 venv plus `uv pip install --dry-run -r requirements-dev.txt`.
+- Note the larger Docker image in the PR description.
+
+### 2. `service/research/errors.py`: one failure table
+- Move `ResearchFailure`, `ProviderUnavailable` and `CREDIT_HINTS` out of `agent.py`.
+- Add `classify_failure(status: int | None, body: str, name, rejected=None) -> ResearchFailure`.
+  It holds today's rules, unchanged:
+  - `None` (unreachable): 60 s;
+  - 402 or a credit hint: 1800 s;
+  - 401/403: 1800 s;
+  - 429: 60 s;
+  - 5xx: 60 s;
+  - anything else: a plain `ResearchFailure`.
+- Rewrite `http_failure` as a thin wrapper around it. The old loops keep using it.
+- Add `provider_failure(error: Exception, name) -> ResearchFailure` for the SDKs:
+  - `openai.APIConnectionError` / `anthropic.APIConnectionError` (timeouts are subclasses):
+    `classify_failure(None, ...)`;
+  - `openai.APIStatusError` / `anthropic.APIStatusError`:
+    `classify_failure(e.status_code, e.response.text[:2000].lower(), ...)`;
+  - anything else is re-raised. Never hide a bug as a provider error.
+- In `agent.py`, keep `from service.research.errors import ProviderUnavailable, ResearchFailure, http_failure`
+  so the existing imports in the worker, orchestrator, tests and evals keep working.
+
+### 3. `service/research/models.py`: model factory
+`chat_model(provider: str, model: str, *, max_tokens: int) -> BaseChatModel`.
+
+Shared settings: `max_retries=0` and `max_tokens`. Then per provider:
+
+- **anthropic:** `ChatAnthropic(model=..., api_key=settings.ANTHROPIC_API_KEY, output_version="v1", default_request_timeout=90)`
+- **openai:** `ChatOpenAI(model=..., api_key=settings.OPENAI_API_KEY, use_responses_api=True, output_version="v1", store=False, include=["web_search_call.action.sources", "reasoning.encrypted_content"], request_timeout=90)`.
+  It's built but stays unused until there's a key.
+- **local:** `ChatOpenAI(model=..., base_url=settings.LOCAL_LLM_BASE_URL, api_key=settings.LOCAL_LLM_API_KEY.strip() or "unused", use_responses_api=False, request_timeout=120, extra_body=thinking(settings.LOCAL_LLM_THINKING))`.
+  - The `"unused"` placeholder is needed because the OpenAI client insists on a key; local
+    servers ignore the header.
+  - Move `thinking()` into this module and import it back into `local_agent.py`.
+- Any other provider: `ValueError`.
+- Take a `thinking` override argument so `local_json` can force it off in PR 3.
+
+### 4. `service/research/tools.py`: market tools as LangChain tools
+- **Refactor first** (behaviour-neutral): split `ResearchAgent.run_tool` into
+  - JSON parsing of the arguments, which stays in `run_tool`;
+  - `async def market_tool(self, name: str, args: dict[str, Any]) -> str`, which holds the
+    checkpoint, the snapshot calls, `record_snapshot` and the exact error-JSON strings.
+
+  The old loops keep calling `execute_tool`, so their tests must still pass untouched.
+- `make_tools(agent: ResearchAgent) -> list[BaseTool]` defines three async `@tool` closures that
+  each `return await agent.market_tool(name, {...})`:
+  - `stock_snapshot(symbol: str)`
+  - `investment_analysis(symbol: str)`
+  - `treasury_snapshot(kind: Literal["curve", "bills"])`
+
+  The description of each must be its `TOOLS` description verbatim; set it with
+  `@tool(description=...)` or as the docstring. Return only those that `agent.tool_allowed(name)`
+  permits.
+- `web_search_tool(provider, remaining_uses) -> dict | None`:
+  - openai: `{"type": "web_search"}`
+  - anthropic: `{"type": "web_search_20250305", "name": "web_search", "max_uses": remaining_uses}`
+  - local: `None`
+
+  Callers check `tool_allowed("web_search")`.
+- Note for PR 2: a `Literal` argument rejects bad values before our code runs. Inside
+  `create_agent`, configure the tool node so a validation error returns our safe "Unsupported
+  read-only tool or arguments" JSON, not LangChain's default message.
+
+### 5. Tests (new files; nothing existing changes)
+- **`tests/test_research_errors.py`.** Parametrize today's `test_http_failure_classification`
+  table over three error sources:
+  - `httpx.HTTPStatusError`;
+  - `openai.APIStatusError(message, response=httpx2.Response(status, request=httpx2.Request("POST", "https://x"), text=body), body=None)`;
+  - the same for `anthropic`.
+
+  Add connection errors (expect a 60 s cooldown) and a plain `ValueError` (re-raised).
+  **Gotcha:** the SDKs here use `httpx2`, not `httpx`, so build their responses with `httpx2`.
+- **`tests/test_research_models.py`.** No network:
+  - check the class, `max_retries == 0` and `output_version == "v1"` per provider;
+  - check the local `base_url`, the `extra_body` thinking flag and the `"unused"` key fallback;
+  - an unknown provider raises.
+- **`tests/test_research_tools.py`.** Use a plain `ResearchAgent` with `stock_snapshot` and the
+  others monkeypatched:
+  - tool names and descriptions equal `TOOLS`;
+  - `treasury_snapshot`'s schema has the `curve`/`bills` enum;
+  - `allowed_tools={"stock_snapshot"}` yields one tool;
+  - a call records evidence and returns exactly what `execute_tool` returns for the same input;
+  - an upstream failure returns the same error JSON;
+  - `web_search_tool` returns the right shape per provider.
+- **Guard test:** `import service.research.worker` must not import `langchain`. Check that
+  `"langchain_core"` is not in `sys.modules` after importing the worker in a subprocess. This
+  proves PR 1 is inert.
+
+### 6. Checks before pushing
+- Run in `backend/`: `ruff check .`, `ruff format --check .`, `mypy`, `pytest` (expect
+  196 + new tests passing).
+- If mypy fails on LangChain types, add a narrow `[[tool.mypy.overrides]]` for that module only.
+- Run `python -m evals.run_research routing --rules-only --local`. It must match the
+  baseline exactly (kind 0.925, symbols 0.85…).
+- Update CLAUDE.md (research section: new modules, the `httpx2` gotcha) and `context.md`'s
+  source map.
+
+PR title: `feat(research): LangChain building blocks (models, errors, tools)`. Description: no
+behaviour change; nothing imports the new modules yet; Anthropic migration follows in PR 2.

@@ -45,11 +45,14 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 - Run ruff from `backend/` (config in `backend/pyproject.toml`). Local `alembic/` dir shadows the package for isort, hence `known-third-party = ["alembic"]`.
 - mypy: `db/orm_models.py` + `db/service.py` have error codes disabled (legacy `Column()` models). Migrating to `Mapped[]` lets those overrides go.
 - ESLint: `react-hooks/set-state-in-effect` is a warning (AssetFormModal, TradeFormModal reset form state in effects) — fix with key-based remount, then make it an error.
-- Tests: `tests/conftest.py` uses httpx AsyncClient + savepoint rollback; wipes the test DB by reflect+drop (Alembic downgrade of `b46451958cb3` is broken: unnamed FK). slowapi limiters are disabled in tests.
+- Tests: `tests/test_reports.py` fakes every `_blocking_*` lookup + `calculate_performance_scores` via the `market` fixture — no network in tests. After `expire_all()` (e.g. `member_headers`), read ORM attributes only via `await db_session.refresh(obj)` or ids captured beforehand, or you get MissingGreenlet. `tests/conftest.py` uses httpx AsyncClient + savepoint rollback; wipes the test DB by reflect+drop (Alembic downgrade of `b46451958cb3` is broken: unnamed FK). slowapi limiters are disabled in tests.
 - Root `.gitignore` is the Python template; its `lib/` rule once hid `frontend/src/lib` — anchor new generic rules to `backend/`.
 - Use `lifespan` in main.py, not `@app.on_event`. New settings go in `core/config.py` AND `.env.example`.
 - Never commit `.env` files (root `.gitignore` covers backend + frontend).
 - `venv/` and `node_modules/` are not copied — recreate after cloning.
+
+- `Group.members` is a `hybrid_property`: never `selectinload` it — load `Group.member_associations` → `UserGroupAssociation.user` (as `get_group_by_id` / `get_trade_by_id` do).
+- Portfolio performance cost basis is true FIFO (sells consume the earliest buys), fixed 2026-10-15; it previously kept the earliest lots and understated cost.
 
 ## Research service (LLM orchestration)
 - Lives in `backend/service/research/`; runs in a separate worker process (`python -m service.research.worker`) that claims queued `research_runs` rows. Fuller notes: `context.md` at repo root.
@@ -62,7 +65,7 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 - Next (not started): Phase 3 provider adapters → LangChain chat models — step-by-step plan in `docs/backend/research_langchain_migration.md` (step 0 = paid `full --market offline` baseline per provider; key gotchas: `max_retries=0`, `output_version="v1"`, switch `run_agent` span to `chain` to avoid double-counted tokens, record real citation fixtures per provider); Phase 4 Auto as a LangGraph `StateGraph`. Gate each on eval parity vs a `full --market offline` baseline (needs API keys; none in cloud sessions).
 - Keys available (2026-10-15): user has ONLY an Anthropic key and no local model API yet. Phase 3 order: Anthropic first (eval-gated), local next (unit tests now, evals once Ollama runs), OpenAI keeps the old httpx adapter until a key exists. Baseline uses `RESEARCH_TIER_CHEAP=anthropic:claude-haiku-5-5`. See the "Adjusted plan" section of the migration doc.
 - LangChain vs LangGraph (decided 2026-10-15: option 1, both): they are layers, not rivals. `langchain` 1.4.x depends on `langgraph` (its `create_agent` runs on LangGraph); checked versions: langchain 1.4.6, langchain-core 1.6.10, langchain-openai 1.7.2, langchain-anthropic 1.7.6, langgraph 1.2.15. Recommendation: Phase 3 = LangChain chat models + `@tool` + `create_agent`, with ModelCallLimit/ToolCallLimit middleware for the provider tool loops. Keep `ProviderUnavailable`/cooldowns/tier choice as our own code; don't use ModelFallbackMiddleware. Phase 4 = LangGraph `StateGraph` for Auto, running data and web in parallel. No checkpointer: LangGraph has no MySQL saver, and `research_runs` already stores run state.
-- Phase 3 PR 1 (done 2026-10-15, inert): `service/research/errors.py` (exceptions + one failure table: `classify_failure`, `http_failure` for httpx, `provider_failure` for SDK errors, which re-raises non-provider errors; `agent.py` re-exports the old names), `models.py` (`chat_model(provider, model, max_tokens, thinking=None)`, `max_retries=0` + `output_version="v1"`; a missing cloud key raises `ProviderUnavailable` 1800 s; local uses placeholder key `"unused"`), `tools.py` (`make_tools(agent)` → `@tool` closures over `ResearchAgent.market_tool`, which `run_tool` now also uses; `web_search_tool(provider, uses)`). `thinking()` stays in `local_agent.py` so nothing loads LangChain. `test_research_tools.py` asserts that importing `main` + the worker loads no `langchain*`/`langgraph*`; this guard must be removed in PR 2. Gotcha: in the SDKs used here (`openai` 3.31, `anthropic` 1.14) the exceptions take `httpx2.Request`/`Response`, not `httpx`. 240 tests pass.
+- Phase 3 PR 1 (done 2026-10-15, inert): `service/research/errors.py` (exceptions + one failure table: `classify_failure`, `http_failure` for httpx, `provider_failure` for SDK errors, which re-raises non-provider errors; `agent.py` re-exports the old names), `models.py` (`chat_model(provider, model, max_tokens, thinking=None)`, `max_retries=0` + `output_version="v1"`; a missing cloud key raises `ProviderUnavailable` 1800 s; local uses placeholder key `"unused"`), `tools.py` (`make_tools(agent)` → `@tool` closures over `ResearchAgent.market_tool`, which `run_tool` now also uses; `web_search_tool(provider, uses)`). `thinking()` stays in `local_agent.py` so nothing loads LangChain. `test_research_tools.py` asserts that importing `main` + the worker loads no `langchain*`/`langgraph*`; this guard must be removed in PR 2. Gotcha: in the SDKs used here (`openai` 3.31, `anthropic` 1.14) the exceptions take `httpx2.Request`/`Response`, not `httpx`. 240 tests passed at PR 1; 279 after merging main (trade/report tests).
 - Deps: `langsmith==0.14.8` pulls `httpx2`, which forced `idna==3.20`, `anyio==4.15.1`, `typing_extensions==4.16.0`.
 
 ## Cloud sessions (Claude Code on the web)
@@ -71,7 +74,7 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 - No `backend/.env` in the cloud: the hook exports `DATABASE_URL`, `SYNC_DATABASE_URL`, `TEST_DATABASE_URL`, `SECRET_KEY` via `$CLAUDE_ENV_FILE` (skipped if a `.env` exists). Use `venv/bin/<tool>` in `backend/`.
 - Python must be **3.12** (`uv venv venv --python 3.12`); the VM default is 3.13 and 3.14 breaks pydantic_core and watchfiles wheels.
 - yfinance needs the Yahoo domains (`*.finance.yahoo.com`, `fc.yahoo.com`) on the environment's network allowlist. A 429 from Yahoo is their rate limit, not the proxy. Tests don't hit Yahoo.
-- Verified 2026-10-15 on MariaDB: ruff, ruff format, mypy, pytest (240 passed); frontend lint (2 known warnings), format:check, typecheck, build.
+- Verified 2026-10-15 on MariaDB: ruff, ruff format, mypy, pytest (279 passed); frontend lint (2 known warnings), format:check, typecheck, build.
 
 ## Direction (decided 2026-09-16)
 - Goal: **portfolio showcase** (public repo for job hunting) — polish, CI and a clean README matter.
@@ -81,7 +84,7 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 - Known gaps / backlog:
   - Frontend PerformancePage expects `portfolio_score` / per-holding `score` (see docs/backend/portfolio_performance_scoring.md) but the backend does NOT implement scoring yet.
   - `total_dividends_base` in reports is never calculated (always 0).
-  - Tests only cover auth; add trades/reports/groups tests.
+  - Groups router has no tests yet (auth, trades CRUD + import, reports, research, scoring are covered).
   - README screenshots placeholder (docs/screenshots/).
   - Alembic downgrade of b46451958cb3 fails; `datetime.utcnow()` (DTZ003 ignored) and `(str, Enum)` (UP042 ignored) to revisit.
   - GitHub repo is bhanu18/portfolio-manager (renamed from portfolio_tracker); origin and badges updated.

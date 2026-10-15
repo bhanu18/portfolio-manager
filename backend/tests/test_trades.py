@@ -241,3 +241,174 @@ async def test_import_rejects_oversized_file(client, group_id, member_headers):
         client, member_headers, group_id, dry_run=True, content=b"x" * (2**21 + 1)
     )
     assert response.status_code == 413
+
+
+# ---- CRUD: list by group, create, update, delete ----
+
+
+@pytest.fixture
+async def outsider_headers(client: AsyncClient) -> dict[str, str]:
+    """Auth headers for a logged-in user who is in no group."""
+    return await _login(client, "outsider@example.com")
+
+
+@pytest.fixture
+async def ids(
+    db_session: AsyncSession, trade_fixture: orm_models.Trade, member_headers: dict[str, str]
+) -> dict[str, int]:
+    """The fixture trade's ids, read after member_headers has expired every instance."""
+    await db_session.refresh(trade_fixture)
+    return {
+        "trade": trade_fixture.id,
+        "group": trade_fixture.group_id,
+        "asset": trade_fixture.asset_id,
+    }
+
+
+NEW_TRADE = {
+    "trade_type": "buy",
+    "trade_date": "2026-02-01T09:00:00",
+    "quantity": 5,
+    "price_per_unit": 200.0,
+    "currency": "USD",
+}
+
+
+async def test_read_trades_for_group_as_member(
+    client: AsyncClient, ids: dict[str, int], member_headers: dict[str, str]
+):
+    response = await client.get(f"/trades/in-group/{ids['group']}", headers=member_headers)
+
+    assert response.status_code == 200
+    assert [row["id"] for row in response.json()] == [ids["trade"]]
+
+
+async def test_read_trades_for_group_rejects_outsider(
+    client: AsyncClient, ids: dict[str, int], outsider_headers: dict[str, str]
+):
+    response = await client.get(f"/trades/in-group/{ids['group']}", headers=outsider_headers)
+    assert response.status_code == 403
+
+
+async def test_read_trades_for_unknown_group(client: AsyncClient, member_headers: dict[str, str]):
+    response = await client.get("/trades/in-group/999999", headers=member_headers)
+    assert response.status_code == 404
+
+
+async def test_read_trades_for_group_requires_login(client: AsyncClient, ids: dict[str, int]):
+    response = await client.get(f"/trades/in-group/{ids['group']}")
+    assert response.status_code == 401
+
+
+async def test_create_trade_as_member(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    ids: dict[str, int],
+    member_headers: dict[str, str],
+):
+    body = {**NEW_TRADE, "group_id": ids["group"]}
+    response = await client.post("/trades/?symbol=aapl", json=body, headers=member_headers)
+
+    assert response.status_code == 201
+    created = response.json()
+    assert created["asset_id"] == ids["asset"]
+    assert created["quantity"] == 5
+    assert await _trade_count(db_session, ids["group"]) == 2
+
+
+async def test_create_trade_rejects_outsider(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    ids: dict[str, int],
+    outsider_headers: dict[str, str],
+):
+    body = {**NEW_TRADE, "group_id": ids["group"]}
+    response = await client.post("/trades/?symbol=AAPL", json=body, headers=outsider_headers)
+
+    assert response.status_code == 403
+    assert await _trade_count(db_session, ids["group"]) == 1
+
+
+async def test_create_trade_unknown_group(client: AsyncClient, member_headers: dict[str, str]):
+    body = {**NEW_TRADE, "group_id": 999999}
+    response = await client.post("/trades/?symbol=AAPL", json=body, headers=member_headers)
+    assert response.status_code == 404
+
+
+async def test_create_trade_unknown_symbol(
+    client: AsyncClient, ids: dict[str, int], member_headers: dict[str, str]
+):
+    body = {**NEW_TRADE, "group_id": ids["group"]}
+    response = await client.post("/trades/?symbol=NOPE", json=body, headers=member_headers)
+    assert response.status_code == 404
+
+
+async def test_create_trade_validates_body(
+    client: AsyncClient, ids: dict[str, int], member_headers: dict[str, str]
+):
+    body = {**NEW_TRADE, "group_id": ids["group"], "trade_type": "short"}
+    response = await client.post("/trades/?symbol=AAPL", json=body, headers=member_headers)
+    assert response.status_code == 422
+
+
+async def test_update_trade_as_member(
+    client: AsyncClient, ids: dict[str, int], member_headers: dict[str, str]
+):
+    response = await client.patch(
+        f"/trades/{ids['trade']}", json={"quantity": 7}, headers=member_headers
+    )
+
+    assert response.status_code == 200
+    assert response.json()["quantity"] == 7
+    # Fields not in the body are left alone.
+    assert response.json()["price_per_unit"] == 190.5
+
+
+async def test_update_trade_rejects_outsider(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    ids: dict[str, int],
+    outsider_headers: dict[str, str],
+):
+    response = await client.patch(
+        f"/trades/{ids['trade']}", json={"quantity": 7}, headers=outsider_headers
+    )
+
+    assert response.status_code == 403
+    db_session.expire_all()
+    trade = await service.get_trade_by_id(db_session, trade_id=ids["trade"])
+    assert trade.quantity == 10
+
+
+async def test_update_unknown_trade(client: AsyncClient, member_headers: dict[str, str]):
+    response = await client.patch("/trades/999999", json={"quantity": 7}, headers=member_headers)
+    assert response.status_code == 404
+
+
+async def test_delete_trade_as_member(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    ids: dict[str, int],
+    member_headers: dict[str, str],
+):
+    response = await client.delete(f"/trades/{ids['trade']}", headers=member_headers)
+
+    assert response.status_code == 204
+    assert await _trade_count(db_session, ids["group"]) == 0
+
+
+async def test_delete_trade_rejects_outsider(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    ids: dict[str, int],
+    outsider_headers: dict[str, str],
+):
+    response = await client.delete(f"/trades/{ids['trade']}", headers=outsider_headers)
+
+    assert response.status_code == 403
+    assert await _trade_count(db_session, ids["group"]) == 1
+
+
+async def test_delete_unknown_trade(client: AsyncClient, member_headers: dict[str, str]):
+    response = await client.delete("/trades/999999", headers=member_headers)
+    assert response.status_code == 404

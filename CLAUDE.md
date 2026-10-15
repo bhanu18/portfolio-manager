@@ -50,7 +50,6 @@ Originals still exist at `~/Documents/projects/portfolio_tracker` and `portfolio
 - Use `lifespan` in main.py, not `@app.on_event`. New settings go in `core/config.py` AND `.env.example`.
 - Never commit `.env` files (root `.gitignore` covers backend + frontend).
 - `venv/` and `node_modules/` are not copied — recreate after cloning.
-
 - `Group.members` is a `hybrid_property`: never `selectinload` it — load `Group.member_associations` → `UserGroupAssociation.user` (as `get_group_by_id` / `get_trade_by_id` do).
 - Portfolio performance cost basis is true FIFO (sells consume the earliest buys), fixed 2026-10-15; it previously kept the earliest lots and understated cost.
 

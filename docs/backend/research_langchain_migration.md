@@ -13,6 +13,22 @@ Versions checked 2026-10-15 (install cleanly with the current pins): `langchain=
 `langchain-core==1.6.10`, `langchain-openai==1.7.2`, `langchain-anthropic==1.7.6`,
 `langgraph==1.2.15` (comes with `langchain`).
 
+## Adjusted plan (2026-10-15): Anthropic key only, no local model yet
+
+Only Anthropic can be evaluated, so the plan changes:
+- **Step 0:** run the baseline for `--provider anthropic` and `--provider auto` only. With just
+  Anthropic, Auto routes with the regex rules and every tier falls back to Anthropic. To keep
+  Auto's cheap/strong split meaningful, set `RESEARCH_TIER_CHEAP=anthropic:claude-haiku-5-5`
+  before the baseline and keep it identical for the parity run. The routing baseline is the
+  rules-only run already recorded.
+- **Order:** migrate **Anthropic first** (the only provider that can be eval-gated), then local.
+- **Local:** migrate it and cover it with fake-model unit tests. Run the parity eval once Ollama
+  is set up (it's free).
+- **OpenAI: keep the old httpx adapter** (`agent.py` loop) in `AGENTS` until a key exists to
+  record a real fixture and run parity. Don't ship an unverified citation parser. Step 10
+  cleanup then skips OpenAI's loop.
+- Run evals on your machine (where the key lives), not in the cloud session.
+
 ## Step 0: paid baseline (before touching code)
 
 Needs API keys and a local model. Run from `backend/`, ideally with `LANGSMITH_API_KEY` set so
